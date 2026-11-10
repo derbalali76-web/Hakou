@@ -198,7 +198,7 @@ G.logout=async function(){
 /* ---------- بوابة الزبون ---------- */
 function portalSummary(c){
   const cid=c.id,bal=custBalance(cid),ev=[];
-  DB.invoices.filter(i=>i.customerId===cid).forEach(i=>ev.push({k:'inv',d:i.date||0,no:i.no,type:i.type,settled:!!i.settled,money:Math.round(i.money||0),g:+(+i.total730||0).toFixed(2),rows:(i.rows||[]).map(r=>[+r.mizan||0,+r.qoubal||0,+(+r.w730||0).toFixed(2)])}));
+  DB.invoices.filter(i=>i.customerId===cid).forEach(i=>ev.push({k:'inv',d:i.date||0,no:i.no,type:i.type,settled:!!i.settled,money:Math.round(i.money||0),g:+(+i.total730||0).toFixed(2),rows:(i.rows||[]).map(r=>[+r.mizan||0,+r.qoubal||0,+(+r.w730||0).toFixed(2),Math.round(+r.price||0),Math.round(+r.total||0)])}));
   DB.cash.filter(x=>x.customerId===cid).forEach(x=>{
     if(x.note==='تسوية'&&x.cur!=='730')return;
     ev.push({k:'cash',d:x.date||0,kind:x.kind,cur:x.cur,amt:x.cur==='730'?+(+x.amount||0).toFixed(2):Math.round(+x.amount||0),note:x.note||'',sno:x.sNo||0,st:x.sType||'',m:x.mizan||0,q:x.qoubal||0,nb:x.noBal?1:0});});
@@ -221,15 +221,15 @@ G.portalSheet=function(cid){
   if(c.portal&&c.portal.uid){
     sheet('بوابة الزبون — '+esc(c.name),`${shop}
       <div style="background:var(--green-soft);border-radius:14px;padding:14px;margin-bottom:12px;font-weight:700;font-size:13px;line-height:2">
-        ✅ الحساب مفعّل<br>اسم المستخدم: <b dir="ltr">${esc(c.portal.user)}</b><br>رابط الدخول للزبون:<br><b dir="ltr" style="word-break:break-all;user-select:text">${esc(url)}</b></div>
+        ✅ الحساب مفعّل<br>رقم الدخول: <b dir="ltr">${esc(c.portal.user)}</b><br>رابط الدخول للزبون:<br><b dir="ltr" style="word-break:break-all;user-select:text">${esc(url)}</b></div>
       <button class="btn primary" style="margin-bottom:10px" onclick="GPCLOUD.portalRefresh('${cid}')">↻ تحديث ما يراه الزبون الآن</button>
       <button class="btn ghost" style="margin-bottom:10px" onclick="GPCLOUD.portalRevoke('${cid}')">🚫 إلغاء وصول الزبون</button>
-      <div style="font-size:11.5px;color:var(--muted);font-weight:700;line-height:1.8">يرى الزبون رصيده وفواتيره وحركاته فقط. ما يُدخَل في التطبيق يظهر له تلقائياً. لتغيير كلمة سره: ألغِ الوصول ثم أنشئ حساباً جديداً باسم مستخدم جديد.</div>`);
+      <div style="font-size:11.5px;color:var(--muted);font-weight:700;line-height:1.8">يرى الزبون رصيده وفواتيره وحركاته فقط. ما يُدخَل في التطبيق يظهر له تلقائياً. لتغيير كلمة سره: ألغِ الوصول ثم أنشئ حساباً جديداً برقم جديد أو كلمة سر جديدة.</div>`);
   }else{
     sheet('بوابة الزبون — '+esc(c.name),`${shop}
-      <div style="font-size:12.5px;color:var(--muted);font-weight:700;line-height:1.9;margin-bottom:12px">أنشئ للزبون اسم مستخدم وكلمة سر ليرى رصيده وفواتيره من هاتفه. لن يرى أي زبون آخر ولا بياناتك.</div>
-      <label style="display:block;font-size:11.5px;font-weight:800;color:var(--muted);margin:0 2px 6px">اسم المستخدم (أحرف إنجليزية وأرقام)</label>
-      <input id="pt-user" autocomplete="off" placeholder="مثال: farid.balah" style="width:100%;padding:12px;border-radius:11px;border:1.5px solid var(--line);font-size:14px;font-weight:700;direction:ltr;margin-bottom:10px;box-sizing:border-box">
+      <div style="font-size:12.5px;color:var(--muted);font-weight:700;line-height:1.9;margin-bottom:12px">أدخل رقم هاتف الزبون وكلمة سر ليرى رصيده وفواتيره من هاتفه. لن يرى أي زبون آخر ولا بياناتك.</div>
+      <label style="display:block;font-size:11.5px;font-weight:800;color:var(--muted);margin:0 2px 6px">رقم هاتف الزبون (هو اسم دخوله)</label>
+      <input id="pt-user" autocomplete="off" inputmode="tel" value="${esc(c.phone||'')}" placeholder="مثال: 0550123456" style="width:100%;padding:12px;border-radius:11px;border:1.5px solid var(--line);font-size:14px;font-weight:700;direction:ltr;margin-bottom:10px;box-sizing:border-box">
       <label style="display:block;font-size:11.5px;font-weight:800;color:var(--muted);margin:0 2px 6px">كلمة السر (6 أحرف على الأقل)</label>
       <input id="pt-pass" autocomplete="off" style="width:100%;padding:12px;border-radius:11px;border:1.5px solid var(--line);font-size:14px;font-weight:700;direction:ltr;margin-bottom:12px;box-sizing:border-box">
       <div id="pt-err" style="color:var(--red);font-weight:800;font-size:12.5px;min-height:18px;margin-bottom:8px"></div>
@@ -237,12 +237,17 @@ G.portalSheet=function(cid){
   }
 };
 function saveShopName(){const el=document.getElementById('pt-shop');if(el&&el.value.trim()!==(DB.shopName||'')){DB.shopName=el.value.trim();return true;}return false;}
-G.portalCreate=async function(cid){
-  const c=DB.customers.find(x=>x.id===cid),err=m=>{const e=document.getElementById('pt-err');if(e)e.textContent=m||'';};
-  const user=(document.getElementById('pt-user').value||'').trim().toLowerCase(),pass=document.getElementById('pt-pass').value||'';
-  if(!/^[a-z0-9._-]{3,30}$/.test(user))return err('اسم المستخدم: 3–30 حرفاً إنجليزياً صغيراً أو أرقاماً أو ._-');
-  if(pass.length<6)return err('كلمة السر 6 أحرف على الأقل');
-  err('… جارٍ الإنشاء');
+function normUser(raw){raw=String(raw||'').trim().toLowerCase();
+  if(/[a-z]/.test(raw))return /^[a-z0-9._-]{3,30}$/.test(raw)?raw:null;
+  let d=raw.replace(/[٠-٩]/g,x=>'٠١٢٣٤٥٦٧٨٩'.indexOf(x)).replace(/\D/g,'');
+  if(d.startsWith('00213'))d='0'+d.slice(5);else if(d.startsWith('213')&&d.length>=12)d='0'+d.slice(3);
+  return /^\d{8,15}$/.test(d)?d:null;}
+G.normUser=normUser;
+// ينشئ حساب بوابة لزبون: يعيد '' عند النجاح أو نص الخطأ
+async function portalMake(c,userRaw,pass){
+  const user=normUser(userRaw);
+  if(!user)return 'رقم الهاتف غير صحيح (8 أرقام على الأقل) أو اسم مستخدم إنجليزي 3–30 حرفاً';
+  if(String(pass||'').length<6)return 'كلمة السر 6 أحرف على الأقل';
   let sec=null;
   try{
     sec=firebase.initializeApp(CFG,'sec'+Date.now());
@@ -250,11 +255,18 @@ G.portalCreate=async function(cid){
     const cuid=cred.user.uid;await sec.auth().signOut();
     await db.ref('portalOwner/'+cuid).set(UID);
     saveShopName();
-    c.portal={uid:cuid,user,at:Date.now()};logAct('زبائن','إنشاء حساب بوابة للزبون «'+c.name+'» — '+user);save();
-    portalSync();
-    toast('تم إنشاء حساب الزبون');G.portalSheet(cid);
-  }catch(e){err(e&&e.code==='auth/email-already-in-use'?'اسم المستخدم مأخوذ — اختر اسماً آخر':arErr(e));}
+    c.portal={uid:cuid,user,at:Date.now()};if(/^\d+$/.test(user)&&!c.phone)c.phone=user;
+    logAct('زبائن','إنشاء حساب بوابة للزبون «'+c.name+'» — '+user);save();
+    portalSync();return '';
+  }catch(e){return e&&e.code==='auth/email-already-in-use'?'هذا الرقم/الاسم مسجّل من قبل — استعمل غيره':arErr(e);}
   finally{try{sec&&sec.delete();}catch(_){}}
+}
+G.portalMake=portalMake;
+G.portalCreate=async function(cid){
+  const c=DB.customers.find(x=>x.id===cid),err=m=>{const e=document.getElementById('pt-err');if(e)e.textContent=m||'';};
+  err('… جارٍ الإنشاء');
+  const m=await portalMake(c,document.getElementById('pt-user').value,document.getElementById('pt-pass').value);
+  if(m)return err(m);toast('تم إنشاء حساب الزبون');G.portalSheet(cid);
 };
 G.portalRefresh=function(cid){if(saveShopName())save();delete PSNAP[(DB.customers.find(x=>x.id===cid).portal||{}).uid];portalSync();toast('تم التحديث');};
 G.portalRevoke=async function(cid){

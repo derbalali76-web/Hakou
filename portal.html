@@ -32,6 +32,24 @@ h3{margin:4px 4px 12px;font-size:15px}
 .dt{margin-inline-start:auto;font-size:11.5px;color:var(--muted);font-weight:700}
 .r2{font-weight:800;font-size:14.5px;margin-top:7px}
 .r3{font-size:12px;color:var(--muted);font-weight:700;margin-top:4px;line-height:1.8}
+.it.tap{cursor:pointer;padding:13px 4px;display:flex;align-items:center;gap:10px}
+.it.tap:active{background:#f6f7fc}
+.it .mn{flex:1;min-width:0}
+.it .t1{font-weight:900;font-size:14.5px}
+.it .t2{white-space:nowrap;font-size:11px;color:var(--muted);font-weight:700;margin-top:3px}
+.it .am{text-align:left;direction:ltr;font-weight:900;font-size:15px;white-space:nowrap}
+.it .ch{color:#c3c8d9;font-size:18px;font-weight:900}
+.sh-bg{position:fixed;inset:0;background:rgba(14,20,40,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sh{background:#fff;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 16px 28px;animation:up .22s ease}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.inv-h{text-align:center;border-bottom:2px dashed var(--line);padding-bottom:12px;margin-bottom:12px}
+.inv-h .n{font-weight:900;font-size:18px}.inv-h .d{font-size:12px;color:var(--muted);font-weight:700;margin-top:3px}
+.tb{width:100%;border-collapse:collapse;font-size:12.5px;font-weight:700}
+.tb th{font-size:10.5px;color:var(--muted);font-weight:800;padding:6px 3px;border-bottom:1px solid var(--line);text-align:center}
+.tb td{padding:8px 3px;border-bottom:1px solid var(--line);text-align:center;direction:ltr}
+.tot{background:#f6f7fc;border-radius:14px;padding:12px 14px;margin-top:12px}
+.tot div{display:flex;justify-content:space-between;font-weight:800;font-size:13px;padding:3px 0}
+.tot .big{font-size:17px;font-weight:900;border-top:1px solid var(--line);margin-top:5px;padding-top:8px}
 .empty{text-align:center;color:var(--muted);font-weight:700;padding:24px 0}
 .login{max-width:380px;margin:60px auto;padding:0 18px}
 input{width:100%;padding:13px;border-radius:12px;border:1.5px solid #e1e4ef;font-size:15px;direction:ltr;margin-bottom:10px;font-family:inherit}
@@ -54,9 +72,9 @@ const $app=document.getElementById('app');
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const grp=(n,d)=>{const x=Math.abs(+n||0).toFixed(d).split('.');x[0]=x[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ');if(x[1])x[1]=x[1].replace(/0+$/,'');return x[0]+(x[1]?'.'+x[1]:'');};
 const D=n=>'⁦'+grp(n,0)+'⁩',G=n=>'⁦'+grp(n,2)+'⁩';
-const dt=ms=>{try{return new Date(ms).toLocaleDateString('ar-DZ')}catch(e){return ''}};
+const dt=ms=>{try{const x=new Date(ms),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()}catch(e){return ''}};
 const MAIL='@gp730.app';
-const AR={'auth/invalid-credential':'اسم المستخدم أو كلمة السر خاطئة','auth/invalid-login-credentials':'اسم المستخدم أو كلمة السر خاطئة','auth/user-not-found':'اسم المستخدم غير موجود','auth/wrong-password':'كلمة السر خاطئة','auth/invalid-email':'اسم المستخدم غير صحيح','auth/network-request-failed':'لا يوجد اتصال بالإنترنت','auth/too-many-requests':'محاولات كثيرة — انتظر قليلاً'};
+const AR={'auth/invalid-credential':'رقم الهاتف أو كلمة السر خاطئة','auth/invalid-login-credentials':'رقم الهاتف أو كلمة السر خاطئة','auth/user-not-found':'رقم الهاتف غير مسجّل','auth/wrong-password':'كلمة السر خاطئة','auth/invalid-email':'رقم الهاتف غير صحيح','auth/network-request-failed':'لا يوجد اتصال بالإنترنت','auth/too-many-requests':'محاولات كثيرة — انتظر قليلاً'};
 if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.apiKey)){
   $app.innerHTML='<div class="login"><div class="empty">الخدمة غير مهيّأة بعد.</div></div>';
 }else{
@@ -65,33 +83,46 @@ if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.api
   let off=null;
   const side=(v,unit,fmt)=>{const a=Math.abs(v),z=unit==='d'?a<0.5:a<0.005;
     if(z)return ['zero','خالص ✓',fmt(0)];return v>0?['pos','عليك',fmt(a)]:['neg','لك عند المحل',fmt(a)];};
+  function normU(raw){raw=String(raw||'').trim().toLowerCase();if(/[a-z]/.test(raw))return raw;
+    let d=raw.replace(/[٠-٩]/g,x=>'٠١٢٣٤٥٦٧٨٩'.indexOf(x)).replace(/\D/g,'');
+    if(d.startsWith('00213'))d='0'+d.slice(5);else if(d.startsWith('213')&&d.length>=12)d='0'+d.slice(3);return d;}
   function loginView(msg){
     $app.innerHTML=`<div class="top"><div class="shop">ذهب برو</div><div class="who">حسابي</div></div>
     <div class="login" style="margin-top:-40px"><div class="card">
-      <input id="u" placeholder="اسم المستخدم" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <input id="u" placeholder="رقم الهاتف" inputmode="tel" autocomplete="username" autocapitalize="none" spellcheck="false">
       <input id="p" type="password" placeholder="كلمة السر" autocomplete="current-password">
       <div id="err">${esc(msg||'')}</div>
       <button class="btn" id="go">دخول</button></div></div>`;
-    const go=async()=>{const u=document.getElementById('u').value.trim().toLowerCase(),p=document.getElementById('p').value;
-      if(!u||!p)return document.getElementById('err').textContent='أدخل اسم المستخدم وكلمة السر';
+    const go=async()=>{const u=normU(document.getElementById('u').value),p=document.getElementById('p').value;
+      if(!u||!p)return document.getElementById('err').textContent='أدخل رقم الهاتف وكلمة السر';
       document.getElementById('err').textContent='… جارٍ الدخول';
       try{await auth.signInWithEmailAndPassword(u+MAIL,p);}catch(e){document.getElementById('err').textContent=AR[e.code]||('خطأ: '+e.message);}};
     document.getElementById('go').onclick=go;document.getElementById('p').onkeydown=e=>{if(e.key==='Enter')go();};
   }
-  function render(o){
+  window.closeSh=()=>{const x=document.getElementById('shbg');if(x)x.remove();};
+  window.showInv=i=>{const e=(window.EVS||[])[i];if(!e||e.k!=='inv')return;const buy=e.type==='buy';
+    const rows=(e.rows||[]),has=rows.some(r=>r[3]);
+    const tw=rows.reduce((s,r)=>s+(+r[0]||0),0);
+    const tr=rows.map((r,n)=>`<tr><td>${n+1}</td><td>${G(r[0])}</td><td>${esc(r[1])}</td><td>${G(r[2])}</td>${has?`<td>${D(r[3])}</td><td>${D(r[4])}</td>`:''}</tr>`).join('');
+    const bg=document.createElement('div');bg.className='sh-bg';bg.id='shbg';bg.onclick=ev=>{if(ev.target===bg)closeSh();};
+    bg.innerHTML=`<div class="sh"><div class="inv-h"><div class="n">فاتورة N°${esc(e.no)}</div><div class="d"><span dir="ltr">${dt(e.d)}</span> · ${buy?'بعتَ للمحل':'اشتريتَ من المحل'} · ${e.settled?'✓ خالصة':'غير خالصة'}</div></div>
+      <div style="overflow-x:auto"><table class="tb"><tr><th>#</th><th>الوزن غ</th><th>العيار</th><th>ما يعادل 730</th>${has?'<th>سعر الغرام</th><th>المبلغ دج</th>':''}</tr>${tr}</table></div>
+      <div class="tot"><div><span>عدد القطع</span><span>${rows.length}</span></div><div><span>الوزن الإجمالي</span><span dir="ltr">${G(tw)} غ</span></div><div><span>المعادل 730</span><span dir="ltr">${G(e.g)} غ</span></div><div class="big"><span>المبلغ</span><span dir="ltr">${D(e.money)} دج</span></div></div>
+      <button class="btn" style="margin-top:14px" onclick="closeSh()">إغلاق</button></div>`;
+    document.body.appendChild(bg);};
+  function render(o){closeSh();
     const bd=side(o.bal.d,'d',D),bg=side(o.bal.g,'g',G);
-    const ev=(o.ev||[]).filter(e=>!(e.k==='cash'&&e.nb)).map(e=>{
+    const list=(o.ev||[]).filter(e=>!(e.k==='cash'&&e.nb));window.EVS=list;
+    const row=(i,t1,t2,am,cls,tap)=>`<div class="it tap" ${tap?`onclick="showInv(${i})"`:''}><div class="mn"><div class="t1">${t1}</div><div class="t2">${t2}</div></div><div class="am ${cls||''}">${am}</div>${tap?'<span class="ch">‹</span>':''}</div>`;
+    const ev=list.map((e,i)=>{
       if(e.k==='inv'){const buy=e.type==='buy';
-        const rows=(e.rows||[]).map(r=>`${G(r[0])} غ × ${esc(r[1])} = ${G(r[2])}`).join(' · ');
-        return `<div class="it"><div class="r1"><span class="badge b">${buy?'بعتَ للمحل':'اشتريتَ من المحل'}</span><span class="badge">${e.settled?'خالصة':'غير خالصة'}</span><span class="dt">${dt(e.d)}</span></div>
-          <div class="r2">فاتورة N°${esc(e.no)} — ${D(e.money)} دج · ${G(e.g)} غ</div><div class="r3">${rows}</div></div>`;}
+        return row(i,`${buy?'بعتَ للمحل':'اشتريتَ من المحل'} ${G(e.g)} غ`,`<span dir="ltr">${dt(e.d)}</span> · فاتورة <span dir="ltr">N°${esc(e.no)}</span> · ${e.settled?'خالصة':'غير خالصة'}`,D(e.money)+' دج',e.settled?'':'pos',true);}
       if(e.k==='cash'){
-        if(e.note==='تسوية'){return `<div class="it"><div class="r1"><span class="badge b">${e.st==='buy'?'حساب: بعتَ ذهباً':'حساب: اشتريتَ ذهباً'}</span><span class="dt">${dt(e.d)}</span></div><div class="r2">${G(e.amt)} غ (730)${e.sno?' — حساب N°'+esc(e.sno):''}</div></div>`;}
+        if(e.note==='تسوية')return row(i,e.st==='buy'?'حساب: بعتَ ذهباً':'حساب: اشتريتَ ذهباً','<span dir="ltr">'+dt(e.d)+'</span>'+(e.sno?' · حساب N°'+esc(e.sno):''),G(e.amt)+' غ','',false);
         const pay=e.kind==='pay',g=e.cur==='730';
-        return `<div class="it"><div class="r1"><span class="badge ${pay?'p':'t'}">${pay?'دفعتَ':'أخذتَ'}${g?' ذهباً':''}</span><span class="dt">${dt(e.d)}</span></div>
-          <div class="r2">${g?G(e.amt)+' غ (730)':D(e.amt)+' دج'}</div>${g&&e.m?`<div class="r3">${G(e.m)} غ × ${esc(e.q)}</div>`:''}</div>`;}
+        return row(i,(pay?'دفعتَ':'أخذتَ')+(g?' ذهباً':''),'<span dir="ltr">'+dt(e.d)+'</span>'+(g&&e.m?' · '+G(e.m)+' غ × '+esc(e.q):''),g?G(e.amt)+' غ':D(e.amt)+' دج',pay?'neg':'pos',false);}
       if(e.k==='open'){const parts=[];if(Math.abs(e.din)>=1)parts.push((e.din<0?'−':'+')+' '+D(e.din)+' دج');if(Math.abs(e.g)>=0.005)parts.push((e.g<0?'−':'+')+' '+G(e.g)+' غ');
-        return `<div class="it"><div class="r1"><span class="badge">${e.adj?'تعديل الرصيد':'رصيد سابق'}</span>${e.d?`<span class="dt">${dt(e.d)}</span>`:''}</div><div class="r2">${parts.join(' · ')||'—'}</div></div>`;}
+        return row(i,e.adj?'تعديل الرصيد':'رصيد سابق',e.d?'<span dir="ltr">'+dt(e.d)+'</span>':'',parts.join(' · ')||'—','',false);}
       return '';}).join('');
     $app.innerHTML=`<div class="top"><div class="shop">${esc(o.shop||'ذهب برو')}</div><div class="who">${esc(o.name)}</div></div>
     <div class="wrap"><div class="card"><div class="bal">
