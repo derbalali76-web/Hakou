@@ -1,0 +1,25 @@
+{
+  "name": "حسابي — ذهب برو",
+  "short_name": "حسابي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./portal.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1428",
+  "theme_color": "#0e1428",
+  "icons": [
+    {
+      "src": "portal-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "portal-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

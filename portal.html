@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e1428">
+<title>حسابي — ذهب برو</title>
+<link rel="manifest" href="portal.webmanifest">
+<link rel="icon" href="portal-192.png">
+<link rel="apple-touch-icon" href="portal-apple.png">
+<style>
+:root{--navy:#0e1428;--navy2:#18203c;--gold:#efb52f;--gold-deep:#b9820a;--ink:#1a2036;--muted:#8b92a9;--bg:#f3f4fb;--card:#fff;--line:#e8eaf2;--green:#12a866;--red:#e33f57}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Cairo','Segoe UI',Tahoma,system-ui,sans-serif;min-height:100vh}
+.top{background:linear-gradient(135deg,#0e1428,#243158);color:#fff;padding:22px 16px 70px;text-align:center}
+.top .shop{font-weight:900;font-size:19px;color:var(--gold)}
+.top .who{font-weight:700;font-size:14px;margin-top:4px;opacity:.9}
+.wrap{max-width:560px;margin:-52px auto 30px;padding:0 14px}
+.card{background:var(--card);border-radius:20px;padding:16px;box-shadow:0 8px 22px -8px rgba(14,20,40,.14);margin-bottom:14px}
+.bal{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bal>div{text-align:center;padding:10px 4px}
+.bal .l{font-size:12px;color:var(--muted);font-weight:800}
+.bal .v{font-size:23px;font-weight:900;margin-top:4px;direction:ltr}
+.bal .s{font-size:12px;font-weight:800;margin-top:2px}
+.pos{color:var(--red)}.neg{color:var(--green)}.zero{color:var(--muted)}
+h3{margin:4px 4px 12px;font-size:15px}
+.it{border-bottom:1px solid var(--line);padding:12px 2px}
+.it:last-child{border:0}
+.r1{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:20px;background:#eef2ff;color:#3a4fd0}
+.badge.b{background:#fdf4d6;color:var(--gold-deep)}.badge.p{background:#e0f5ea;color:var(--green)}.badge.t{background:#fde8eb;color:var(--red)}
+.dt{margin-inline-start:auto;font-size:11.5px;color:var(--muted);font-weight:700}
+.r2{font-weight:800;font-size:14.5px;margin-top:7px}
+.r3{font-size:12px;color:var(--muted);font-weight:700;margin-top:4px;line-height:1.8}
+.empty{text-align:center;color:var(--muted);font-weight:700;padding:24px 0}
+.login{max-width:380px;margin:60px auto;padding:0 18px}
+input{width:100%;padding:13px;border-radius:12px;border:1.5px solid #e1e4ef;font-size:15px;direction:ltr;margin-bottom:10px;font-family:inherit}
+button{font-family:inherit;cursor:pointer}
+.btn{width:100%;padding:14px;border-radius:13px;background:linear-gradient(135deg,#141c38,#243158);color:#fff;font-weight:800;font-size:16px;border:0}
+.out{background:none;border:0;color:var(--muted);font-weight:700;font-size:12.5px;display:block;margin:6px auto}
+#err{color:var(--red);font-weight:800;font-size:12.5px;min-height:18px;margin-bottom:8px}
+.upd{text-align:center;color:var(--muted);font-size:11.5px;font-weight:700;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+'use strict';
+const $app=document.getElementById('app');
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const grp=(n,d)=>{const x=Math.abs(+n||0).toFixed(d).split('.');x[0]=x[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ');if(x[1])x[1]=x[1].replace(/0+$/,'');return x[0]+(x[1]?'.'+x[1]:'');};
+const D=n=>'⁦'+grp(n,0)+'⁩',G=n=>'⁦'+grp(n,2)+'⁩';
+const dt=ms=>{try{return new Date(ms).toLocaleDateString('ar-DZ')}catch(e){return ''}};
+const MAIL='@gp730.app';
+const AR={'auth/invalid-credential':'اسم المستخدم أو كلمة السر خاطئة','auth/invalid-login-credentials':'اسم المستخدم أو كلمة السر خاطئة','auth/user-not-found':'اسم المستخدم غير موجود','auth/wrong-password':'كلمة السر خاطئة','auth/invalid-email':'اسم المستخدم غير صحيح','auth/network-request-failed':'لا يوجد اتصال بالإنترنت','auth/too-many-requests':'محاولات كثيرة — انتظر قليلاً'};
+if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.apiKey)){
+  $app.innerHTML='<div class="login"><div class="empty">الخدمة غير مهيّأة بعد.</div></div>';
+}else{
+  firebase.initializeApp(GP_FIREBASE);
+  const auth=firebase.auth(),db=firebase.database();
+  let off=null;
+  const side=(v,unit,fmt)=>{const a=Math.abs(v),z=unit==='d'?a<0.5:a<0.005;
+    if(z)return ['zero','خالص ✓',fmt(0)];return v>0?['pos','عليك',fmt(a)]:['neg','لك عند المحل',fmt(a)];};
+  function loginView(msg){
+    $app.innerHTML=`<div class="top"><div class="shop">ذهب برو</div><div class="who">حسابي</div></div>
+    <div class="login" style="margin-top:-40px"><div class="card">
+      <input id="u" placeholder="اسم المستخدم" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <input id="p" type="password" placeholder="كلمة السر" autocomplete="current-password">
+      <div id="err">${esc(msg||'')}</div>
+      <button class="btn" id="go">دخول</button></div></div>`;
+    const go=async()=>{const u=document.getElementById('u').value.trim().toLowerCase(),p=document.getElementById('p').value;
+      if(!u||!p)return document.getElementById('err').textContent='أدخل اسم المستخدم وكلمة السر';
+      document.getElementById('err').textContent='… جارٍ الدخول';
+      try{await auth.signInWithEmailAndPassword(u+MAIL,p);}catch(e){document.getElementById('err').textContent=AR[e.code]||('خطأ: '+e.message);}};
+    document.getElementById('go').onclick=go;document.getElementById('p').onkeydown=e=>{if(e.key==='Enter')go();};
+  }
+  function render(o){
+    const bd=side(o.bal.d,'d',D),bg=side(o.bal.g,'g',G);
+    const ev=(o.ev||[]).filter(e=>!(e.k==='cash'&&e.nb)).map(e=>{
+      if(e.k==='inv'){const buy=e.type==='buy';
+        const rows=(e.rows||[]).map(r=>`${G(r[0])} غ × ${esc(r[1])} = ${G(r[2])}`).join(' · ');
+        return `<div class="it"><div class="r1"><span class="badge b">${buy?'بعتَ للمحل':'اشتريتَ من المحل'}</span><span class="badge">${e.settled?'خالصة':'غير خالصة'}</span><span class="dt">${dt(e.d)}</span></div>
+          <div class="r2">فاتورة N°${esc(e.no)} — ${D(e.money)} دج · ${G(e.g)} غ</div><div class="r3">${rows}</div></div>`;}
+      if(e.k==='cash'){
+        if(e.note==='تسوية'){return `<div class="it"><div class="r1"><span class="badge b">${e.st==='buy'?'حساب: بعتَ ذهباً':'حساب: اشتريتَ ذهباً'}</span><span class="dt">${dt(e.d)}</span></div><div class="r2">${G(e.amt)} غ (730)${e.sno?' — حساب N°'+esc(e.sno):''}</div></div>`;}
+        const pay=e.kind==='pay',g=e.cur==='730';
+        return `<div class="it"><div class="r1"><span class="badge ${pay?'p':'t'}">${pay?'دفعتَ':'أخذتَ'}${g?' ذهباً':''}</span><span class="dt">${dt(e.d)}</span></div>
+          <div class="r2">${g?G(e.amt)+' غ (730)':D(e.amt)+' دج'}</div>${g&&e.m?`<div class="r3">${G(e.m)} غ × ${esc(e.q)}</div>`:''}</div>`;}
+      if(e.k==='open'){const parts=[];if(Math.abs(e.din)>=1)parts.push((e.din<0?'−':'+')+' '+D(e.din)+' دج');if(Math.abs(e.g)>=0.005)parts.push((e.g<0?'−':'+')+' '+G(e.g)+' غ');
+        return `<div class="it"><div class="r1"><span class="badge">${e.adj?'تعديل الرصيد':'رصيد سابق'}</span>${e.d?`<span class="dt">${dt(e.d)}</span>`:''}</div><div class="r2">${parts.join(' · ')||'—'}</div></div>`;}
+      return '';}).join('');
+    $app.innerHTML=`<div class="top"><div class="shop">${esc(o.shop||'ذهب برو')}</div><div class="who">${esc(o.name)}</div></div>
+    <div class="wrap"><div class="card"><div class="bal">
+      <div><div class="l">الدينار</div><div class="v ${bd[0]}">${bd[2]}</div><div class="s ${bd[0]}">${bd[1]}</div></div>
+      <div><div class="l">الذهب (730)</div><div class="v ${bg[0]}">${bg[2]} <small style="font-size:13px">غ</small></div><div class="s ${bg[0]}">${bg[1]}</div></div></div></div>
+      <div class="card"><h3>معاملاتك</h3>${ev||'<div class="empty">لا توجد معاملات بعد</div>'}</div>
+      <div class="upd">آخر تحديث: ${new Date(o.t).toLocaleString('ar-DZ')}</div>
+      <button class="out" id="lo">تسجيل الخروج</button></div>`;
+    document.getElementById('lo').onclick=()=>auth.signOut();
+  }
+  auth.onAuthStateChanged(u=>{
+    if(off){off();off=null;}
+    if(!u){loginView();return;}
+    $app.innerHTML='<div class="login"><div class="empty">… جارٍ التحميل</div></div>';
+    const r=db.ref('portal/'+u.uid);
+    const h=r.on('value',s=>{const v=s.val();
+      if(!v||!v.v){$app.innerHTML='<div class="top"><div class="shop">ذهب برو</div></div><div class="login" style="margin-top:-40px"><div class="card"><div class="empty">لا توجد بيانات لحسابك بعد.<br>اطلب من المحل تحديثها.</div></div><button class="out" onclick="firebase.auth().signOut()">تسجيل الخروج</button></div>';return;}
+      try{render(JSON.parse(v.v));}catch(e){$app.innerHTML='<div class="login"><div class="empty">تعذّر عرض البيانات</div></div>';}
+    },e=>{$app.innerHTML='<div class="login"><div class="empty">لا صلاحية لعرض هذه البيانات.</div><button class="out" onclick="firebase.auth().signOut()">تسجيل الخروج</button></div>';});
+    off=()=>r.off('value',h);
+  });
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

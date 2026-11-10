@@ -1,0 +1,25 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "shops": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !root.child('portalOwner').child($uid).exists() && ((!data.child('meta/rev').exists() && newData.child('meta/rev').val() === 1) || (data.child('meta/rev').exists() && newData.child('meta/rev').val() === data.child('meta/rev').val() + 1))"
+      }
+    },
+    "portalOwner": {
+      "$cuid": {
+        ".read": "auth != null && data.val() === auth.uid",
+        ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+      }
+    },
+    "portal": {
+      "$cuid": {
+        ".read": "auth != null && auth.uid === $cuid",
+        ".write": "auth != null && root.child('portalOwner').child($cuid).val() === auth.uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['v','t']) && newData.child('v').isString() && newData.child('v').val().length < 2000000)"
+      }
+    }
+  }
+}
