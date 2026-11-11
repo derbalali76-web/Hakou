@@ -101,7 +101,7 @@ function updDot(){const d=document.getElementById('net-dot');if(!d)return;const 
   const b=d.firstChild;if(b){b.textContent=(st==='red'&&p)?'!':'';}}
 G._dotState=dotState;
 const chipText=()=>STATUS==='ok'?'☁️ محفوظ في السحابة':STATUS==='sync'?'☁️ جارٍ الحفظ…':STATUS==='off'?'⚠️ غير متصل — سيُرفع لاحقاً':STATUS==='stale'?'⛔ نسخة قديمة':'☁️';
-db.ref('.info/connected').on('value',s=>{CONNECTED=!!s.val();updDot();if(CONNECTED&&G.active&&ls.get(LSK.dirty)==='1')G.push();});
+db.ref('.info/connected').on('value',s=>{CONNECTED=!!s.val();updDot();if(CONNECTED&&G.active&&SNAP===null&&ls.get(LSK.dirty)!=='1')setTimeout(()=>initialSync(false),300);if(CONNECTED&&G.active&&ls.get(LSK.dirty)==='1')G.push();});
 /* ===== مزامنة لكل سجلّ على حدة + شواهد حذف صريحة (كتطبيق الخروج) =====
    • كل فاتورة/عملية/زبون عقدة مستقلة؛ جهازان يُدخلان أشياء مختلفة → تبقى كلّها، بلا رفض ولا إعادة إدخال.
    • الحذف بشاهد صريح في عقدة del؛ لا يُحذف محلياً إلا ما له شاهد — لا حذف بالاعتماد على التوقيت إطلاقاً.
@@ -121,7 +121,12 @@ function assignIds(d){if(!d)return d;
   return d;}
 G._assignIds=assignIds;
 function stash(){try{localStorage.setItem(KEY+'_stale_'+Date.now(),JSON.stringify(DB));}catch(e){}}
-async function pull(){ // بيانات السحابة + شواهد الحذف معاً
+/* توفير التنزيل: المستمع اللحظي يحمل نسخة السحابة الحيّة (Firebase يرسل له التغييرات فقط بعد أول تحميل)،
+   فنقرأ منها بدل تنزيل البيانات كاملة مرة أخرى عند كل مزامنة */
+let WATCHING=false,LD=null,LX=null,HD=false,HX=false;
+async function pull(){
+  if(WATCHING){const t0=Date.now();while(!(HD&&HX)&&Date.now()-t0<20000)await sleep(150);
+    if(HD&&HX)return {flat:flatten(LD),del:LX||{},exists:LD!=null};}
   const [ds,xs]=await Promise.all([db.ref('shops/'+UID+'/d').once('value'),db.ref('shops/'+UID+'/del').once('value')]);
   return {flat:flatten(ds.val()),del:xs.val()||{},exists:ds.val()!=null};
 }
@@ -251,14 +256,43 @@ async function runMerge(){   // تحديث لحظي: اسحب وادمج ما إ
 }
 G._runMerge=runMerge;
 function watchRev(){
-  db.ref('shops/'+UID+'/d').on('value',()=>scheduleMerge());
-  db.ref('shops/'+UID+'/del').on('value',()=>scheduleMerge());
+  if(WATCHING)return;WATCHING=true;
+  db.ref('shops/'+UID+'/d').on('value',s=>{LD=s.val();HD=true;scheduleMerge();});
+  db.ref('shops/'+UID+'/del').on('value',s=>{LX=s.val();HX=true;scheduleMerge();});
   if(window.closeModal&&!window.closeModal._gpLive){const _cm=window.closeModal;
     window.closeModal=function(){const r=_cm.apply(this,arguments);if(PENDING_LIVE)setTimeout(scheduleMerge,60);return r;};
     window.closeModal._gpLive=true;}
 }
 
 /* ---------- الدخول والتحميل الأولي ---------- */
+let INITING=false;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function initialSync(wasDirty){
+  if(INITING)return;INITING=true;
+  try{
+    await new Promise(r=>{if(CONNECTED)return r();const t=setTimeout(r,6000);const h=db.ref('.info/connected').on('value',s=>{if(s.val()){clearTimeout(t);db.ref('.info/connected').off('value',h);r();}});});
+    if(!CONNECTED)throw {code:'gp/offline'};
+    const sv=await pull();
+    while(modalOpen()||BUSY)await sleep(400);          // لا نغيّر البيانات تحت نافذة إدخال مفتوحة
+    if(SNAP!==null)return;                               // رفعٌ سبقنا ودمج بنفسه
+    wasDirty=wasDirty||ls.get(LSK.dirty)==='1';
+    const haveLocal=DB&&(DB.customers.length||DB.invoices.length);
+    if(sv.exists){
+      if(wasDirty&&haveLocal)stash();
+      const need=mergeInto(sv.flat,sv.del,!!(wasDirty&&haveLocal));
+      if(need||wasDirty)G.push();
+    }else{ // أول مرة على السحابة
+      SNAP={};setKnown();
+      if(haveLocal&&confirm('هذا حساب جديد على السحابة.\nهل ترفع البيانات الموجودة على هذا الجهاز إلى حسابك؟\n\nموافق = رفعها · إلغاء = البدء بحساب فارغ'))G.push();
+      else{DB=normDB(seed());lsSave();G.push();try{renderHome();renderDebts();renderArchive();}catch(_){}}
+    }
+    setStatus(ls.get(LSK.dirty)==='1'?'sync':'ok');
+  }catch(e){ // بلا اتصال: نعمل على النسخة المحلية ونزامن عند عودة الإنترنت
+    SNAP=null;setStatus('off');
+    if(e&&e.code==='PERMISSION_DENIED')setTimeout(()=>alert('⛔ قاعدة البيانات رفضت القراءة.\nتأكد من نشر ملف database.rules.json في Firebase (Realtime Database ← Rules).'),300);
+    if(!(DB&&(DB.customers.length||DB.invoices.length)))toast('لا يوجد اتصال — افتح التطبيق مرة واحدة متصلاً بالإنترنت');
+  }finally{INITING=false;}
+}
 G.init=async function(){
   let u=await authReady();
   if(!u){await loginUI();u=auth.currentUser;}
@@ -267,28 +301,15 @@ G.init=async function(){
   ls.set(LSK.uid,UID);
   const wasDirty=ls.get(LSK.dirty)==='1';
   G.active=true;
-  const ov=document.getElementById('store-ov');if(ov)ov.textContent='… جارٍ تحميل بياناتك من السحابة';
-  try{
-    await new Promise(r=>{if(CONNECTED)return r();const t=setTimeout(r,6000);const h=db.ref('.info/connected').on('value',s=>{if(s.val()){clearTimeout(t);db.ref('.info/connected').off('value',h);r();}});});
-    if(!CONNECTED)throw {code:'gp/offline'};
-    const sv=await pull();
-    const haveLocal=DB&&(DB.customers.length||DB.invoices.length);
-    if(sv.exists){
-      if(wasDirty&&haveLocal)stash();               // نسخة احتياطية محلية قبل الدمج
-      const need=mergeInto(sv.flat,sv.del,!!(wasDirty&&haveLocal)); // تعديلاتي غير المرفوعة تُدمج ولا تضيع
-      if(need||wasDirty)G.push();
-    }else{ // أول مرة على السحابة
-      SNAP={};setKnown();
-      const local=DB&&(DB.customers.length||DB.invoices.length);
-      if(local&&confirm('هذا حساب جديد على السحابة.\nهل ترفع البيانات الموجودة على هذا الجهاز إلى حسابك؟\n\nموافق = رفعها · إلغاء = البدء بحساب فارغ'))G.push();
-      else{DB=normDB(seed());lsSave();G.push();}
-    }
-  }catch(e){ // بلا اتصال: نعمل على النسخة المحلية ونرفع لاحقاً
-    SNAP=null;setStatus('off');
-    if(e&&e.code==='PERMISSION_DENIED')setTimeout(()=>alert('⛔ قاعدة البيانات رفضت القراءة.\nتأكد من نشر ملف database.rules.json في Firebase (Realtime Database ← Rules).'),300);
-    if(!(DB&&(DB.customers.length||DB.invoices.length)))toast('لا يوجد اتصال — افتح التطبيق مرة واحدة متصلاً بالإنترنت');
+  watchRev(); // المستمع أولاً: تحميل واحد يخدم المزامنة الأولى والتحديث اللحظي معاً
+  const ov=document.getElementById('store-ov');
+  const haveLocal0=!!(DB&&(DB.customers.length||DB.invoices.length));
+  if(haveLocal0){ // كحانوت يسين: نفتح فوراً من البيانات المحلية، والمزامنة تجري في الخلفية
+    setStatus(CONNECTED?'sync':'off');initialSync(wasDirty);
+  }else{
+    if(ov)ov.textContent='… جارٍ تحميل بياناتك من السحابة';
+    await initialSync(wasDirty);
   }
-  watchRev();
   if(window.photosBlock)window.photosBlock=function(){return '';}; // الصور تحتاج خادم ويندوز المحلي
   if(window.renderInvPhotos)window.renderInvPhotos=function(){};
   const st=document.createElement('style');st.textContent='.phbox,.phbtn{display:none!important}';document.head.appendChild(st);

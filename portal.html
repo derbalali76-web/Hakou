@@ -61,7 +61,12 @@ button{font-family:inherit;cursor:pointer}
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><div class="top"><div class="shop">ذهب برو</div><div class="who">حسابي</div></div>
+<div class="login" style="margin-top:-40px"><div class="card">
+<input placeholder="رقم الهاتف" disabled><input type="password" placeholder="كلمة السر" disabled>
+<div id="err">… جارٍ الاتصال</div><button class="btn" disabled style="opacity:.6">دخول</button></div></div></div>
+<script>/* من سجّل دخوله سابقاً يرى «جارٍ التحميل» بدل نموذج الدخول */
+try{if(localStorage.getItem('gp_portal_in')==='1')document.getElementById('app').innerHTML='<div class="top"><div class="shop">ذهب برو</div><div class="who">حسابي</div></div><div class="login" style="margin-top:-40px"><div class="card"><div class="empty">… جارٍ التحميل</div></div></div>';}catch(e){}</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
@@ -75,7 +80,11 @@ const D=n=>'⁦'+grp(n,0)+'⁩',G=n=>'⁦'+grp(n,2)+'⁩';
 const dt=ms=>{try{const x=new Date(ms),z=n=>String(n).padStart(2,'0');return z(x.getDate())+'/'+z(x.getMonth()+1)+'/'+x.getFullYear()}catch(e){return ''}};
 const MAIL='@gp730.app';
 const AR={'auth/invalid-credential':'رقم الهاتف أو كلمة السر خاطئة','auth/invalid-login-credentials':'رقم الهاتف أو كلمة السر خاطئة','auth/user-not-found':'رقم الهاتف غير مسجّل','auth/wrong-password':'كلمة السر خاطئة','auth/invalid-email':'رقم الهاتف غير صحيح','auth/network-request-failed':'لا يوجد اتصال بالإنترنت','auth/too-many-requests':'محاولات كثيرة — انتظر قليلاً'};
-if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.apiKey)){
+const netFail=()=>{$app.innerHTML='<div class="top"><div class="shop">ذهب برو</div><div class="who">حسابي</div></div><div class="login" style="margin-top:-40px"><div class="card"><div class="empty">تعذّر الاتصال — تأكّد من الإنترنت</div><button class="btn" onclick="location.reload()">إعادة المحاولة</button></div></div>';};
+const hint=v=>{try{v?localStorage.setItem('gp_portal_in','1'):localStorage.removeItem('gp_portal_in');}catch(e){}};
+if(typeof firebase==='undefined'||!firebase.initializeApp){
+  netFail();
+}else if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.apiKey)){
   $app.innerHTML='<div class="login"><div class="empty">الخدمة غير مهيّأة بعد.</div></div>';
 }else{
   firebase.initializeApp(GP_FIREBASE);
@@ -133,7 +142,10 @@ if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.api
       <button class="out" id="lo">تسجيل الخروج</button></div>`;
     document.getElementById('lo').onclick=()=>auth.signOut();
   }
+  let settled=false;
+  const slow=setTimeout(()=>{if(!settled){hint(false);loginView();}},10000);
   auth.onAuthStateChanged(u=>{
+    settled=true;clearTimeout(slow);hint(!!u);
     if(off){off();off=null;}
     if(!u){loginView();return;}
     $app.innerHTML='<div class="login"><div class="empty">… جارٍ التحميل</div></div>';
