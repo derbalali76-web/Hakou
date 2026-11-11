@@ -87,8 +87,9 @@ if(typeof firebase==='undefined'||!firebase.initializeApp){
 }else if(!window.GP_FIREBASE||!GP_FIREBASE.apiKey||/YOUR_|ضع_/i.test(GP_FIREBASE.apiKey)){
   $app.innerHTML='<div class="login"><div class="empty">الخدمة غير مهيّأة بعد.</div></div>';
 }else{
-  firebase.initializeApp(GP_FIREBASE);
-  const auth=firebase.auth(),db=firebase.database();
+  /* تطبيق Firebase باسم مستقل: جلسة الزبون منفصلة تماماً عن جلسة تطبيق المحل على نفس الجهاز */
+  const app=firebase.initializeApp(GP_FIREBASE,'portal');
+  const auth=app.auth(),db=app.database();window.__pAuth=auth;
   let off=null;
   const side=(v,unit,fmt)=>{const a=Math.abs(v),z=unit==='d'?a<0.5:a<0.005;
     if(z)return ['zero','خالص ✓',fmt(0)];return v>0?['pos','عليك',fmt(a)]:['neg','لك عند المحل',fmt(a)];};
@@ -173,9 +174,9 @@ if(typeof firebase==='undefined'||!firebase.initializeApp){
     $app.innerHTML='<div class="login"><div class="empty">… جارٍ التحميل</div></div>';
     const r=db.ref('portal/'+u.uid);
     const h=r.on('value',s=>{const v=s.val();
-      if(!v||!v.v){$app.innerHTML='<div class="top"><div class="shop">ذهب برو</div></div><div class="login" style="margin-top:-40px"><div class="card"><div class="empty">لا توجد بيانات لحسابك بعد.<br>اطلب من المحل تحديثها.</div></div><button class="out" onclick="firebase.auth().signOut()">تسجيل الخروج</button></div>';return;}
+      if(!v||!v.v){$app.innerHTML='<div class="top"><div class="shop">ذهب برو</div></div><div class="login" style="margin-top:-40px"><div class="card"><div class="empty">لا توجد بيانات لحسابك بعد.<br>اطلب من المحل تحديثها.</div></div><button class="out" onclick="window.__pAuth.signOut()">تسجيل الخروج</button></div>';return;}
       try{render(JSON.parse(v.v));}catch(e){$app.innerHTML='<div class="login"><div class="empty">تعذّر عرض البيانات</div></div>';}
-    },e=>{$app.innerHTML='<div class="login"><div class="empty">لا صلاحية لعرض هذه البيانات.</div><button class="out" onclick="firebase.auth().signOut()">تسجيل الخروج</button></div>';});
+    },e=>{$app.innerHTML='<div class="login"><div class="empty">لا صلاحية لعرض هذه البيانات.</div><button class="out" onclick="window.__pAuth.signOut()">تسجيل الخروج</button></div>';});
     off=()=>r.off('value',h);
   });
 }
