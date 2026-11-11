@@ -2682,7 +2682,7 @@ function saveOpening(){
   if(!dupConfirm(OB.ing.map(r=>({m:+cleanNum(r.mizan)||0,q:+cleanNum(r.qoubal)||0})).filter(x=>x.m>0&&x.q>0)))return;
   OB.cust.forEach(r=>{if(r.name.trim()){const c=findOrCreateCustomer(r.name);
     if((+cleanNum(r.dinar)||0)!==0||(+cleanNum(r.g730)||0)!==0)
-      DB.openings.push({customerId:c.id,dinar:+cleanNum(r.dinar)||0,g730:+cleanNum(r.g730)||0});}});
+      DB.openings.push({id:uid(),customerId:c.id,dinar:+cleanNum(r.dinar)||0,g730:+cleanNum(r.g730)||0});}});
   const t0=Date.now()-1;   // أقدم من أي فاتورة لاحقة
   OB.ing.forEach(r=>{
     const m=+cleanNum(r.mizan)||0,q=+cleanNum(r.qoubal)||0;

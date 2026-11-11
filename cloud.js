@@ -9,7 +9,7 @@ G.enabled=true;
 firebase.initializeApp(CFG);
 const auth=firebase.auth(),db=firebase.database();
 const MAIL='@gp730.app';
-const LSK={uid:'gp_cloud_uid',dirty:'gp_cloud_dirty',rev:'gp_cloud_rev'};
+const LSK={uid:'gp_cloud_uid',dirty:'gp_cloud_dirty',rev:'gp_cloud_rev',tomb:'gp_cloud_tomb',known:'gp_cloud_known'};
 const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 let UID=null,EMAIL='',REV=null,SNAP=null,BUSY=false,AGAIN=false,TIMER=null,STATUS='idle',STALEBAR=false,CONNECTED=false;
 const PSNAP={};
@@ -90,59 +90,172 @@ function loginUI(){
 function authReady(){return new Promise(res=>{const u=auth.onAuthStateChanged(x=>{u();res(x);});});}
 
 /* ---------- المزامنة ---------- */
-function setStatus(s){STATUS=s;const el=document.getElementById('cloud-chip');if(el)el.textContent=chipText();}
+function setStatus(s){STATUS=s;const el=document.getElementById('cloud-chip');if(el)el.textContent=chipText();updDot();}
+/* نقطة الحالة أعلى الشاشة (كحانوت يسين): 🟢 متصل وكل شيء مرفوع · 🟡 عمليات لم تُرفع بعد · 🔴 لا يوجد إنترنت */
+function pendingCount(){let n=0;try{n=getOutbox().length;}catch(e){}if(ls.get(LSK.dirty)==='1')n=Math.max(n,1);return n;}
+function dotState(){if(!CONNECTED)return 'red';return pendingCount()?'yellow':'green';}
+function updDot(){const d=document.getElementById('net-dot');if(!d)return;const st=dotState(),p=pendingCount();
+  const C={green:['#19c37d','rgba(25,195,125,.55)','متصل — كل العمليات مرفوعة'],yellow:['#f5b700','rgba(245,183,0,.6)','متصل — توجد عمليات لم تُرفع بعد'],red:['#ef3b4f','rgba(239,59,79,.6)','لا يوجد إنترنت'+(p?' — توجد عمليات ستُرفع عند الاتصال':'')]}[st];
+  d.style.background=C[0];d.style.boxShadow='0 0 0 3px rgba(255,255,255,.08),0 0 10px 2px '+C[1];d.title=C[2];d.dataset.st=st;
+  d.style.animation=st==='yellow'?'gpdot 1s ease-in-out infinite':'none';
+  const b=d.firstChild;if(b){b.textContent=(st==='red'&&p)?'!':'';}}
+G._dotState=dotState;
 const chipText=()=>STATUS==='ok'?'☁️ محفوظ في السحابة':STATUS==='sync'?'☁️ جارٍ الحفظ…':STATUS==='off'?'⚠️ غير متصل — سيُرفع لاحقاً':STATUS==='stale'?'⛔ نسخة قديمة':'☁️';
-db.ref('.info/connected').on('value',s=>{CONNECTED=!!s.val();if(CONNECTED&&G.active&&ls.get(LSK.dirty)==='1')G.push();});
-async function fetchServer(){
-  const s=await db.ref('shops/'+UID).once('value'),v=s.val();
-  return {rev:v&&v.meta&&+v.meta.rev||0,flat:v?flatten(v.d):{},exists:!!v};
+db.ref('.info/connected').on('value',s=>{CONNECTED=!!s.val();updDot();if(CONNECTED&&G.active&&ls.get(LSK.dirty)==='1')G.push();});
+/* ===== مزامنة لكل سجلّ على حدة + شواهد حذف صريحة (كتطبيق الخروج) =====
+   • كل فاتورة/عملية/زبون عقدة مستقلة؛ جهازان يُدخلان أشياء مختلفة → تبقى كلّها، بلا رفض ولا إعادة إدخال.
+   • الحذف بشاهد صريح في عقدة del؛ لا يُحذف محلياً إلا ما له شاهد — لا حذف بالاعتماد على التوقيت إطلاقاً.
+   • عند تعديل نفس السجلّ من جهازين وهما متصلان: الأحدث (_u) يفوز. */
+const TOMB='k';
+const noU=o=>{if(o==null)return o;const t=(typeof o==='string'?JSON.parse(o):o),{_u,...r}=t;return JSON.stringify(r);};
+const hasIds=a=>Array.isArray(a)&&a.some(x=>x&&typeof x==='object'&&typeof x.id==='string'&&x.id);
+const allIds=a=>Array.isArray(a)&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)&&typeof x.id==='string'&&x.id);
+function fnv(t){let h=0x811c9dc5;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h.toString(36);}
+/* سجلّات قديمة بلا id داخل مجموعة فيها ids (مثل الأرصدة الافتتاحية): نعطيها id ثابتاً من محتواها
+   — يُحسب بنفس الطريقة على كل جهاز فلا تتكرّر ولا تضيع */
+function assignIds(d){if(!d)return d;
+  for(const k of Object.keys(d)){const a=d[k];if(!Array.isArray(a)||!a.length||!hasIds(a))continue;
+    const seen={};
+    for(const x of a){if(!x||typeof x!=='object'||Array.isArray(x)||(typeof x.id==='string'&&x.id))continue;
+      const b='z'+fnv(k+'|'+JSON.stringify(x)),n=seen[b]=(seen[b]||0)+1;x.id=b+(n>1?'_'+n:'');}}
+  return d;}
+G._assignIds=assignIds;
+function stash(){try{localStorage.setItem(KEY+'_stale_'+Date.now(),JSON.stringify(DB));}catch(e){}}
+async function pull(){ // بيانات السحابة + شواهد الحذف معاً
+  const [ds,xs]=await Promise.all([db.ref('shops/'+UID+'/d').once('value'),db.ref('shops/'+UID+'/del').once('value')]);
+  return {flat:flatten(ds.val()),del:xs.val()||{},exists:ds.val()!=null};
 }
-function adopt(flat,rev){ // اعتماد نسخة الخادم
-  const d=unpack(flat);DB=normDB(Object.assign(seed(),d));
-  REV=rev;SNAP=flat;lsSave();ls.del(LSK.dirty);ls.set(LSK.rev,String(rev));
-  try{renderHome();renderDebts();renderArchive();}catch(e){}
+/* ===== صندوق انتظار الحذف (مثل outbox في حانوت يسين) =====
+   عند كل حفظ — ولو بلا إنترنت — نقارن السجلّات الموجودة بما كان موجوداً قبلها؛ كل ما اختفى يُسجَّل «شاهد حذف» محلياً
+   ويبقى في الصندوق حتى يُرفع. فلا تعود عملية حُذفت دون اتصال. */
+let KNOWN=null;
+const loadJ=(k,d)=>{try{const v=JSON.parse(ls.get(k));return v==null?d:v;}catch(e){return d;}};
+function idsOf(d){const o={};if(!d)return o;for(const k of Object.keys(d))if(allIds(d[k]))o[k]=d[k].map(x=>x.id);return o;}
+function setKnown(){KNOWN=idsOf(DB);ls.set(LSK.known,JSON.stringify(KNOWN));}
+const getOutbox=()=>loadJ(LSK.tomb,[]);
+function markDeletes(){
+  if(!DB)return;assignIds(DB);
+  if(!KNOWN){KNOWN=loadJ(LSK.known,null);if(!KNOWN){setKnown();return;}}
+  const cur=idsOf(DB),ob=getOutbox(),now=Date.now();let ch=false;
+  for(const k in KNOWN){const s=new Set(cur[k]||[]);
+    for(const id of KNOWN[k])if(!s.has(id)){ob.push({k,id,t:now});ch=true;}}
+  if(ch)ls.set(LSK.tomb,JSON.stringify(ob));
+  KNOWN=cur;ls.set(LSK.known,JSON.stringify(cur));
 }
-function stash(why){try{localStorage.setItem(KEY+'_stale_'+Date.now(),JSON.stringify(DB));}catch(e){}return why;}
-async function resync(){ // بعد رفض أو انقطاع: نحدّد هل غيّر أحدٌ البيانات
-  const sv=await fetchServer(),mine=pack(DB),same=(a,b)=>{const ka=Object.keys(a),kb=Object.keys(b);if(ka.length!==kb.length)return false;for(const k of ka)if(a[k]!==b[k])return false;return true;};
-  if(!SNAP&&sv.rev===(+ls.get(LSK.rev)||0)){SNAP=sv.flat;REV=sv.rev;return 'retry';} // بدأنا دون اتصال والخادم لم يتغيّر
-  if(SNAP&&same(sv.flat,SNAP)){REV=sv.rev;return 'retry';}      // لم يتغيّر شيء على الخادم → نعيد رفع تعديلاتي
-  if(same(sv.flat,mine)){SNAP=sv.flat;REV=sv.rev;ls.del(LSK.dirty);return 'same';} // وصلت فعلاً
-  stash();adopt(sv.flat,sv.rev);setStatus('stale');
-  setTimeout(()=>alert('⛔ بياناتك على السحابة تغيّرت من جهاز أو نافذة أخرى.\n\nحمّلتُ لك النسخة الأحدث حمايةً لها، وحُفظت نسختك المحلية جانباً (يمكن تصديرها).\nراجع آخر عملياتك وأعد إدخال ما ينقص.'),200);
-  return 'adopted';
+G._outbox=getOutbox;
+/* يدمج بيانات السحابة في DB. localWins: عند عودة الاتصال، تفوز نسختي المحلية غير المرفوعة. يعيد true إن بقي ما يُرفع */
+function mergeInto(rflat,del,localWins){
+  assignIds(DB);
+  const LT={};getOutbox().forEach(e=>{const m=LT[e.k]=LT[e.k]||{};m[e.id]=Math.max(m[e.id]||0,+e.t||0);}); // حذفي المحلي غير المرفوع
+  const rDB=assignIds(unpack(rflat||{})),keys=new Set([...Object.keys(DB||{}),...Object.keys(rDB)]);
+  const out=seed();let needPush=false;const dirty=ls.get(LSK.dirty)==='1';
+  for(const k of keys){
+    const L=DB?DB[k]:undefined,R=rDB[k];
+    const emp=x=>!Array.isArray(x)||!x.length;
+    if((allIds(L)||emp(L))&&(allIds(R)||emp(R))&&!(emp(L)&&emp(R))&&(hasIds(L)||hasIds(R))){ // مجموعة سجلّات كلّها بـ id
+      const dm=(del&&del[enc(k)])||{};
+      const Lm=new Map(),Rm=new Map();
+      (Array.isArray(L)?L:[]).forEach(x=>{if(x&&x.id)Lm.set(x.id,x);});
+      (Array.isArray(R)?R:[]).forEach(x=>{if(x&&x.id)Rm.set(x.id,x);});
+      const res=new Map();
+      for(const id of new Set([...Lm.keys(),...Rm.keys()])){
+        const l=Lm.get(id),r=Rm.get(id),tomb=Math.max(+((dm[TOMB+enc(id)])||0),l?0:+(((LT[k]||{})[id])||0));
+        if(l&&r){
+          const chosen=localWins?l:((+(r._u||0)>=+(l._u||0))?r:l);
+          if(tomb&&tomb>=(+(chosen._u||0))&&!localWins)continue;   // شاهد حذف أحدث → محذوف
+          res.set(id,chosen);
+          if(chosen===l&&noU(l)!==noU(r))needPush=true;      // تعديلي يفوز → ارفع
+        }else if(l&&!r){
+          if(tomb&&tomb>=(+(l._u||0)))continue;                    // شاهد حذف من جهاز آخر → أسقطه
+          res.set(id,l);needPush=true;                       // عندي فقط وغير محذوف → احتفظ وارفع (لا فقد)
+        }else{                                               // على السحابة فقط
+          if(tomb&&tomb>=(+(r._u||0)))continue;                    // شاهد حذف → أسقطه
+          res.set(id,r);                                     // إضافة جديدة من جهاز آخر
+        }
+      }
+      out[k]=[...res.values()];
+    }else if(Array.isArray(L)||Array.isArray(R)){   // سجلّ بلا id (actLog…) → اتحاد بلا فقد
+      const seen=new Set(),u=[];
+      (Array.isArray(R)?R:[]).concat(Array.isArray(L)?L:[]).forEach(x=>{const s=JSON.stringify(x);if(!seen.has(s)){seen.add(s);u.push(x);}});
+      u.sort((a,b)=>((a&&(a.at||a.date))||0)-((b&&(b.at||b.date))||0));
+      out[k]=u;if(JSON.stringify(u)!==JSON.stringify(Array.isArray(R)?R:[]))needPush=true;
+    }else{                                          // قيمة مفردة
+      const lv=DB?DB[k]:undefined,rv=rDB[k];
+      if(k==='counter'||k==='sCounter')out[k]=Math.max(+lv||0,+rv||0,+out[k]||0);
+      else if(rv===undefined)out[k]=lv;
+      else if((localWins||dirty)&&lv!==undefined&&JSON.stringify(lv)!==JSON.stringify(rv)){out[k]=lv;needPush=true;}
+      else out[k]=rv;
+    }
+  }
+  DB=normDB(out);SNAP=Object.assign({},rflat||{});lsSave();setKnown();
+  if(!needPush){ // اختلاف في الصيغة (بيانات قديمة) أو سجلّ ناقص على السحابة → نرفع؛ الترتيب وحده لا يكفي (تفادياً للتكرار)
+    const cur=pack(DB);
+    for(const p in cur)if(p[0]!=='o'&&SNAP[p]!==cur[p]){needPush=true;break;}
+    if(!needPush)for(const p in SNAP)if(p[0]!=='o'&&!(p in cur)){needPush=true;break;}}
+  try{renderHome&&renderHome();renderDebts&&renderDebts();renderArchive&&renderArchive();}catch(e){}
+  return needPush;
 }
-G.push=function(){clearTimeout(TIMER);TIMER=setTimeout(doPush,700);ls.set(LSK.dirty,'1');setStatus(CONNECTED?'sync':'off');};
+G._mergeInto=mergeInto;
+G.push=function(){try{markDeletes();}catch(e){}clearTimeout(TIMER);TIMER=setTimeout(doPush,700);ls.set(LSK.dirty,'1');setStatus(CONNECTED?'sync':'off');};
 async function doPush(){
   if(!G.active)return;if(BUSY){AGAIN=true;return;}
   if(!CONNECTED){setStatus('off');return;}
   BUSY=true;
   try{
-    if(REV===null||!SNAP){const r=await resync();if(r==='adopted'||r==='same'){return;}}
+    if(SNAP===null){ // بدأنا دون اتصال: ادمج أولاً (تعديلاتي تفوز) حتى لا نعدّ إضافات الأجهزة الأخرى «محذوفة»
+      const sv=await pull();
+      if(sv.exists){stash();mergeInto(sv.flat,sv.del,true);}else SNAP={};}
+    assignIds(DB);const now=Date.now();
+    for(const k of Object.keys(DB)){if(!allIds(DB[k]))continue;          // ختم آخر تعديل للسجلّات المتغيّرة
+      for(const it of DB[k]){const p='r/'+enc(k)+'/k'+enc(it.id),prev=SNAP[p];
+        if(prev===undefined){if(!it._u)it._u=now;}else if(noU(prev)!==noU(it))it._u=now;}}
     const cur=pack(DB),upd={};let n=0;
-    for(const p in cur)if(SNAP[p]!==cur[p]){upd['d/'+p]=cur[p];n++;}
-    for(const p in SNAP)if(!(p in cur)){upd['d/'+p]=null;n++;}
-    if(!n){ls.del(LSK.dirty);setStatus('ok');return;}
-    upd['meta/rev']=REV+1;upd['meta/savedAt']=Date.now();
+    for(const p in cur)if(SNAP[p]!==cur[p]){upd['d/'+p]=cur[p];
+      if(p[0]==='r'){const a=p.split('/');upd['del/'+a[1]+'/'+a[2]]=null;}n++;}   // رُفع/عُدّل → امسح أي شاهد قديم
+    for(const p in SNAP)if(!(p in cur)){upd['d/'+p]=null;
+      if(p[0]==='r'){const a=p.split('/');upd['del/'+a[1]+'/'+a[2]]=now;}n++;}     // حُذف عندي → اكتب شاهداً
+    const ob=getOutbox(),have=idsOf(DB),sent=new Set();
+    for(const e of ob){const ek=enc(e.k),kid='k'+enc(e.id),key=e.k+'|'+e.id+'|'+e.t;
+      if((have[e.k]||[]).indexOf(e.id)>=0){sent.add(key);continue;}            // أُعيدت إضافته → لا شاهد
+      const dp='del/'+ek+'/'+kid;upd[dp]=Math.max(+upd[dp]||0,+e.t||0);upd['d/r/'+ek+'/'+kid]=null;sent.add(key);n++;}
+    const clearOb=()=>{if(sent.size)ls.set(LSK.tomb,JSON.stringify(getOutbox().filter(e=>!sent.has(e.k+'|'+e.id+'|'+e.t))));};
+    if(!n){clearOb();ls.del(LSK.dirty);setStatus('ok');return;}
+    upd['meta/savedAt']=now;
     const to=new Promise((_,rej)=>setTimeout(()=>rej({code:'gp/timeout'}),30000));
     await Promise.race([db.ref('shops/'+UID).update(upd),to]);
-    REV+=1;SNAP=cur;ls.del(LSK.dirty);ls.set(LSK.rev,String(REV));setStatus('ok');
-    portalSync();
-  }catch(e){
-    if(e&&(e.code==='PERMISSION_DENIED'||/permission_denied/i.test(e.message||''))){
-      try{const r=await resync();if(r==='retry')AGAIN=true;}catch(_){setStatus('off');}
-    }else{SNAP=SNAP;REV=(e&&e.code==='gp/timeout')?null:REV;setStatus('off');ls.set(LSK.dirty,'1');}
+    SNAP=cur;clearOb();lsSave();ls.del(LSK.dirty);setStatus('ok');portalSync();
+  }catch(e){setStatus('off');ls.set(LSK.dirty,'1');
   }finally{BUSY=false;if(AGAIN){AGAIN=false;G.push();}}
 }
 G._doPush=doPush;
+let PENDING_LIVE=false,MTIMER=null;
+function modalOpen(){const m=document.getElementById('modal-root');return !!(m&&m.innerHTML.trim()!=='')||!!document.querySelector('.fs');}
+function flashLive(){
+  let t=document.getElementById('live-toast');
+  if(!t){t=document.createElement('div');t.id='live-toast';
+    t.style.cssText='position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:#12a866;color:#fff;padding:8px 16px;border-radius:30px;font:800 12.5px Cairo,Tahoma,sans-serif;box-shadow:0 6px 18px -6px rgba(0,0,0,.4);transition:opacity .4s';
+    document.body.appendChild(t);}
+  t.textContent='🔄 تم تحديث البيانات من جهاز آخر';t.style.opacity='1';
+  clearTimeout(t._h);t._h=setTimeout(()=>{t.style.opacity='0';},2200);
+}
+function scheduleMerge(){clearTimeout(MTIMER);MTIMER=setTimeout(runMerge,180);}
+async function runMerge(){   // تحديث لحظي: اسحب وادمج ما إن يتغيّر شيء على السحابة
+  if(!G.active||SNAP===null)return;
+  if(BUSY){setTimeout(scheduleMerge,300);return;}
+  if(modalOpen()){PENDING_LIVE=true;return;}          // نافذة إدخال مفتوحة → أجّل حتى تُغلق
+  try{const sv=await pull();const before=JSON.stringify(DB);
+    const need=mergeInto(sv.flat,sv.del,false);
+    if(JSON.stringify(DB)!==before)flashLive();
+    PENDING_LIVE=false;if(need)G.push();setStatus(ls.get(LSK.dirty)==='1'?'sync':'ok');
+  }catch(e){PENDING_LIVE=true;}
+}
+G._runMerge=runMerge;
 function watchRev(){
-  db.ref('shops/'+UID+'/meta/rev').on('value',s=>{const v=+s.val()||0;
-    if(REV===null||BUSY||ls.get(LSK.dirty)==='1'||v<=REV||document.getElementById('stale-bar'))return;
-    const b=document.createElement('div');b.id='stale-bar';
-    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a6ca8;color:#fff;padding:12px;text-align:center;font-weight:700;font-size:15px;cursor:pointer';
-    b.textContent='🔄 تم تحديث البيانات من جهاز آخر — اضغط لتحميل الجديد';
-    b.onclick=async()=>{b.remove();const sv=await fetchServer();adopt(sv.flat,sv.rev);setStatus('ok');};
-    document.body.appendChild(b);});
+  db.ref('shops/'+UID+'/d').on('value',()=>scheduleMerge());
+  db.ref('shops/'+UID+'/del').on('value',()=>scheduleMerge());
+  if(window.closeModal&&!window.closeModal._gpLive){const _cm=window.closeModal;
+    window.closeModal=function(){const r=_cm.apply(this,arguments);if(PENDING_LIVE)setTimeout(scheduleMerge,60);return r;};
+    window.closeModal._gpLive=true;}
 }
 
 /* ---------- الدخول والتحميل الأولي ---------- */
@@ -150,7 +263,7 @@ G.init=async function(){
   let u=await authReady();
   if(!u){await loginUI();u=auth.currentUser;}
   UID=u.uid;EMAIL=u.email||'';
-  if(ls.get(LSK.uid)&&ls.get(LSK.uid)!==UID){try{localStorage.removeItem(KEY);}catch(e){} DB=normDB(seed());} // حساب آخر على نفس الجهاز: لا نخلط البيانات
+  if(ls.get(LSK.uid)&&ls.get(LSK.uid)!==UID){try{localStorage.removeItem(KEY);}catch(e){} ls.del(LSK.tomb);ls.del(LSK.known);DB=normDB(seed());} // حساب آخر على نفس الجهاز: لا نخلط البيانات
   ls.set(LSK.uid,UID);
   const wasDirty=ls.get(LSK.dirty)==='1';
   G.active=true;
@@ -158,19 +271,20 @@ G.init=async function(){
   try{
     await new Promise(r=>{if(CONNECTED)return r();const t=setTimeout(r,6000);const h=db.ref('.info/connected').on('value',s=>{if(s.val()){clearTimeout(t);db.ref('.info/connected').off('value',h);r();}});});
     if(!CONNECTED)throw {code:'gp/offline'};
-    const sv=await fetchServer();
-    if(wasDirty&&DB&&(DB.customers.length||DB.invoices.length)){ // عدّلتَ دون اتصال سابقاً
-      if(sv.rev===(+ls.get(LSK.rev)||0)){SNAP=sv.flat;REV=sv.rev;G.push();} // الخادم لم يتغيّر → نرفع تعديلاتي
-      else{stash();adopt(sv.flat,sv.rev);setTimeout(()=>alert('⚠️ كانت لديك تعديلات دون اتصال لكن بياناتك على السحابة تغيّرت في الأثناء.\nحمّلتُ النسخة الأحدث وحفظتُ نسختك المحلية جانباً.'),300);}
-    }else if(sv.exists){adopt(sv.flat,sv.rev);}
-    else{ // أول مرة على السحابة
-      REV=0;SNAP={};
+    const sv=await pull();
+    const haveLocal=DB&&(DB.customers.length||DB.invoices.length);
+    if(sv.exists){
+      if(wasDirty&&haveLocal)stash();               // نسخة احتياطية محلية قبل الدمج
+      const need=mergeInto(sv.flat,sv.del,!!(wasDirty&&haveLocal)); // تعديلاتي غير المرفوعة تُدمج ولا تضيع
+      if(need||wasDirty)G.push();
+    }else{ // أول مرة على السحابة
+      SNAP={};setKnown();
       const local=DB&&(DB.customers.length||DB.invoices.length);
       if(local&&confirm('هذا حساب جديد على السحابة.\nهل ترفع البيانات الموجودة على هذا الجهاز إلى حسابك؟\n\nموافق = رفعها · إلغاء = البدء بحساب فارغ'))G.push();
       else{DB=normDB(seed());lsSave();G.push();}
     }
   }catch(e){ // بلا اتصال: نعمل على النسخة المحلية ونرفع لاحقاً
-    SNAP=null;REV=+ls.get(LSK.rev)||null;setStatus('off');
+    SNAP=null;setStatus('off');
     if(e&&e.code==='PERMISSION_DENIED')setTimeout(()=>alert('⛔ قاعدة البيانات رفضت القراءة.\nتأكد من نشر ملف database.rules.json في Firebase (Realtime Database ← Rules).'),300);
     if(!(DB&&(DB.customers.length||DB.invoices.length)))toast('لا يوجد اتصال — افتح التطبيق مرة واحدة متصلاً بالإنترنت');
   }
@@ -178,6 +292,16 @@ G.init=async function(){
   if(window.photosBlock)window.photosBlock=function(){return '';}; // الصور تحتاج خادم ويندوز المحلي
   if(window.renderInvPhotos)window.renderInvPhotos=function(){};
   const st=document.createElement('style');st.textContent='.phbox,.phbtn{display:none!important}';document.head.appendChild(st);
+  if(!document.getElementById('net-dot')){
+    const ks=document.createElement('style');ks.textContent='@keyframes gpdot{0%,100%{opacity:1}50%{opacity:.35}}';document.head.appendChild(ks);
+    const dot=document.createElement('span');dot.id='net-dot';
+    dot.style.cssText='width:13px;height:13px;border-radius:50%;flex:none;display:grid;place-items:center;cursor:pointer;transition:background .3s';
+    dot.innerHTML='<b style="font:900 9px/1 Tahoma,sans-serif;color:#fff"></b>';
+    dot.onclick=()=>{try{toast(dot.title);}catch(e){}};
+    const ck=document.getElementById('clock');
+    if(ck&&ck.parentNode)ck.parentNode.insertBefore(dot,ck);
+    else{dot.style.cssText+=';position:fixed;top:12px;left:12px;z-index:9999';document.body.appendChild(dot);}
+    setInterval(updDot,1500);}
   const chip=document.createElement('div');chip.id='cloud-chip';chip.style.cssText='position:fixed;bottom:4px;left:8px;z-index:50;font:700 10.5px Cairo,Tahoma,sans-serif;color:#8b92a9;pointer-events:none';chip.textContent=chipText();document.body.appendChild(chip);
   setStatus(STATUS==='idle'?'ok':STATUS);
 };

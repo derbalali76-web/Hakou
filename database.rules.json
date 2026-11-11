@@ -5,7 +5,7 @@
     "shops": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && !root.child('portalOwner').child($uid).exists() && ((!data.child('meta/rev').exists() && newData.child('meta/rev').val() === 1) || (data.child('meta/rev').exists() && newData.child('meta/rev').val() === data.child('meta/rev').val() + 1))"
+        ".write": "auth != null && auth.uid === $uid && !root.child('portalOwner').child($uid).exists()"
       }
     },
     "portalOwner": {
