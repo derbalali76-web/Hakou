@@ -678,8 +678,8 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
     <div class="arows" id="assets-rows"></div>
   </div>
   <div class="qcash">
-    <button class="qin" onclick="openQuickCash('in')"><span class="qic">↓</span><span><b>أخذت صوارد</b><small>تزيد الكوفر</small></span></button>
-    <button class="qout" onclick="openQuickCash('out')"><span class="qic">↑</span><span><b>دفعت صوارد</b><small>تنقص الكوفر</small></span></button>
+    <button class="qin" onclick="openQuickCash('in')"><span class="qic">↓</span><span><b>أخذت</b><small>دينار أو ذهب</small></span></button>
+    <button class="qout" onclick="openQuickCash('out')"><span class="qic">↑</span><span><b>دفعت</b><small>دينار أو ذهب</small></span></button>
   </div>
 </div>
 
@@ -3159,7 +3159,8 @@ const qesc=t=>String(t==null?'':t).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;
 function openQuickCash(dir){
   const isIn=dir==='in',col=isIn?'#0d8b53':'#c72d44';
   const names=DB.customers.map(c=>({c,t:custLastActivity(c.id)})).sort((a,b)=>b.t-a.t).map(x=>`<option value="${qesc(x.c.name)}">`).join('');
-  sheet(isIn?'أخذت صوارد':'دفعت صوارد',`
+  QCG=[{mizan:'',qoubal:''}];
+  sheet(isIn?'أخذت':'دفعت',`
     <div style="background:${isIn?'linear-gradient(135deg,#eafaf2,#d5f3e4)':'linear-gradient(135deg,#fff3f5,#fde3e8)'};border:1px solid ${isIn?'#bfe9d4':'#f6c9d1'};border-radius:16px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;font-weight:800;font-size:13px;color:${col}">
       <span>صوارد الكوفر الآن</span><span style="margin-inline-start:auto;font-size:16px;font-weight:900">${qn(coffer())} دج</span></div>
     <div class="field"><label>اسم الزبون</label>
@@ -3167,10 +3168,45 @@ function openQuickCash(dir){
       <datalist id="qc-dl">${names}</datalist></div>
     <div class="field"><label>المبلغ (دج)</label>
       <input id="qc-a" type="text" inputmode="decimal" placeholder="0" oninput="onNum(this,()=>qcHint('${dir}'))" style="text-align:center;font-size:20px;font-weight:900;direction:ltr"></div>
-    <div id="qc-hint" style="min-height:44px;margin:-4px 2px 12px;font-size:12.5px;font-weight:800;line-height:1.7"></div>
+    <div class="field" style="margin-bottom:6px"><label>سبائك 730 ${isIn?'(دخلت ذهب الكوفر)':'(تخرج من ذهب الكوفر)'}</label>
+      <div id="qc-grows"></div></div>
+    <div id="qc-hint" style="min-height:44px;margin:0 2px 12px;font-size:12.5px;font-weight:800;line-height:1.7"></div>
     <button class="btn" id="qc-go" onclick="saveQuickCash('${dir}')" style="background:${isIn?'linear-gradient(135deg,#12a866,#0d8b53)':'linear-gradient(135deg,#e33f57,#c72d44)'};color:#fff">${isIn?'تسجيل: أخذت':'تسجيل: دفعت'}</button>`);
+  qcgRender(dir);
   setTimeout(()=>{const t=document.getElementById('qc-n');if(t)t.focus();},250);
 }
+/* سبائك 730 في بطاقتي أخذت/دفعت — نفس قيود «إضافة» في بطاقة الزبون */
+let QCG=[{mizan:'',qoubal:''}];
+function qcgRowHTML(i,dir){const r=QCG[i];
+  const inp=(c,f,ph)=>`<input type="text" inputmode="decimal" data-qg="${i}" data-c="${c}" placeholder="${ph}" value="${digitsGroup(r[f])}"
+      onkeydown="qcgKey(event,'${dir}')" oninput="onNum(this,v=>qcgUpd(${i},'${f}',v,'${dir}'))"
+      style="flex:1;min-width:0;padding:11px;border-radius:11px;border:1.5px solid var(--gold-line);background:#fff;font-size:16px;font-weight:800;text-align:center;outline:none;direction:ltr">`;
+  return `<div style="display:flex;gap:7px;align-items:center;margin-bottom:7px">${inp(0,'mizan','الوزن')}${inp(1,'qoubal','العيار')}
+    <span style="min-width:64px;text-align:center;font-weight:800;font-size:12px;color:var(--gold-deep)" id="qcg-e${i}">—</span>
+    ${QCG.length>1?`<button onclick="qcgDel(${i},'${dir}')" style="width:30px;height:30px;border-radius:9px;border:none;background:var(--bg2);color:var(--muted);font-weight:900;flex:none">×</button>`:''}</div>`;}
+function qcgRender(dir){const c=document.getElementById('qc-grows');if(!c)return;
+  c.innerHTML=QCG.map((_,i)=>qcgRowHTML(i,dir)).join('');QCG.forEach((_,i)=>qcgEqRow(i));}
+function qcgEqRow(i){const r=QCG[i],e=document.getElementById('qcg-e'+i);if(!e)return;
+  const m=+cleanNum(r.mizan)||0,q=+cleanNum(r.qoubal)||0;e.textContent=(m&&q)?fmt(w730of(m,q),2):'—';}
+function qcgUpd(i,f,v,dir){QCG[i][f]=v;qcgEqRow(i);
+  if(i===QCG.length-1&&(String(QCG[i].mizan).trim()||String(QCG[i].qoubal).trim())){
+    QCG.push({mizan:'',qoubal:''});
+    if(QCG.length===2)qcgRender(dir);else document.getElementById('qc-grows').insertAdjacentHTML('beforeend',qcgRowHTML(QCG.length-1,dir));}
+  qcHint(dir);}
+function qcgDel(i,dir){QCG.splice(i,1);if(!QCG.length)QCG=[{mizan:'',qoubal:''}];qcgRender(dir);qcHint(dir);}
+function qcgKey(e,dir){if(!['ArrowUp','ArrowDown','Enter'].includes(e.key))return;
+  const r=+e.target.dataset.qg,c=+e.target.dataset.c,nr=e.key==='ArrowUp'?r-1:r+1;if(nr<0)return;e.preventDefault();
+  if(nr>=QCG.length){QCG.push({mizan:'',qoubal:''});qcgRender(dir);}
+  setTimeout(()=>{const t=document.querySelector(`#qc-grows input[data-qg="${nr}"][data-c="${c}"]`);if(t){t.focus();try{t.select()}catch(_){}}},0);}
+function qcgList(){return QCG.filter(r=>(+cleanNum(r.mizan)||0)>0&&(+cleanNum(r.qoubal)||0)>0).map(r=>({m:+cleanNum(r.mizan),q:+cleanNum(r.qoubal)}));}
+function qcgCheck(dir){ // نص الخطأ أو ''
+  for(const r of QCG){const m=+cleanNum(r.mizan)||0,q=+cleanNum(r.qoubal)||0;
+    if(m>0&&q<=0)return 'أدخل العيار في كل سطر';if(q>0&&m<=0)return 'أدخل الوزن في كل سطر';if(q>1000)return 'عيار أكبر من 1000 — راجع العيار';}
+  if(dir==='out'){ // حارس: كل سبيكة يجب أن تطابق سبيكة موجودة في ذهب الكوفر (نفس الوزن ونفس العيار)
+    const pool=DB.stock.map(s=>({m:+s.mizan,q:+s.qoubal})),miss=[];
+    qcgList().forEach(x=>{const i=pool.findIndex(p=>p.q===+x.q&&Math.abs(p.m-x.m)<0.005);if(i>=0)pool.splice(i,1);else miss.push(fmt(x.m,2)+'غ × '+x.q);});
+    if(miss.length)return 'غير موجودة في ذهب الكوفر: '+miss.join('، ');}
+  return '';}
 function qcHint(dir){
   const el=document.getElementById('qc-hint');if(!el)return;
   const n=cleanTxt(document.getElementById('qc-n').value),a=+cleanNum(document.getElementById('qc-a').value)||0;
@@ -3183,22 +3219,38 @@ function qcHint(dir){
   if(a){const nc=cf+(isIn?a:-a);
     h+=`<div>صوارد الكوفر بعدها: <span style="color:${nc<0?'var(--red)':'inherit'}">${nc<0?'− ':''}${qn(Math.abs(nc))} دج</span></div>`;
     if(!isIn&&a>cf+0.001)h+=`<div style="color:var(--red)">⛔ المبلغ أكبر من صوارد الكوفر</div>`;}
+  const gl=qcgList(),gerr=qcgCheck(dir),geq=gl.reduce((s,x)=>s+w730of(x.m,x.q),0);
+  if(c&&gl.length){const g=custBalance(c.id).g730,ga=g+(isIn?-geq:+geq),gs=v=>Math.abs(v)<0.005?'خالص':(v>0?'عليه ':'له ')+qn(Math.abs(v),2)+' غ';
+    h+=`<div>ذهبه: ${gs(g)} ← بعدها: ${gs(ga)}</div>`;}
+  if(gl.length)h+=`<div style="color:var(--gold-deep)">${gl.length} سبيكة · مكافئ 730 = ${qn(geq,2)} غ</div>`;
+  if(gerr)h+=`<div style="color:var(--red)">⛔ ${qesc(gerr)}</div>`;
+  else if(!isIn&&gl.length)h+=`<div style="color:var(--green)">✓ ${gl.length>1?'السبائك موجودة':'السبيكة موجودة'} في ذهب الكوفر</div>`;
+  else if(isIn&&gl.length)h+=dupBox(dupHits(gl).hits);
   el.innerHTML=h;
-  const go=document.getElementById('qc-go');if(go)go.style.opacity=(!isIn&&a>cf+0.001)?.45:1;
+  const go=document.getElementById('qc-go');if(go)go.style.opacity=((!isIn&&a>cf+0.001)||gerr)?.45:1;
 }
 function saveQuickCash(dir){
   const isIn=dir==='in';
   const n=cleanTxt(document.getElementById('qc-n').value),a=+cleanNum(document.getElementById('qc-a').value)||0;
   if(!n)return toast('اكتب اسم الزبون');
-  if(!(a>0))return toast('اكتب المبلغ');
+  const gl=qcgList(),gerr=qcgCheck(dir);
+  if(!(a>0)&&!gl.length)return toast('اكتب المبلغ أو سبيكة');
+  if(gerr)return toast('⛔ '+gerr);                                             // حارس الذهب
   const cf=coffer();
   if(!isIn&&a>cf+0.001)return toast('⛔ صوارد الكوفر '+fmt(cf,0)+' دج فقط');   // حارس الكوفر
+  if(isIn&&gl.length&&!dupConfirm(gl))return;
   let c=DB.customers.find(x=>x.name.trim()===n);
   if(!c){if(!confirm('«'+n+'» غير موجود في دفتر الديون.\nإضافته زبوناً جديداً؟'))return;c=findOrCreateCustomer(n);}
-  DB.cash.push({id:uid(),customerId:c.id,kind:isIn?'pay':'take',cur:'dinar',amount:a,date:Date.now()});
-  logAct('صوارد',(isIn?'أخذت صوارد من «':'دفعت صوارد لـ«')+c.name+'» — '+fmt(a,0)+' دج');
+  const now=Date.now(),kind=isIn?'pay':'take',parts=[];
+  if(a>0){DB.cash.push({id:uid(),customerId:c.id,kind,cur:'dinar',amount:a,date:now});parts.push(fmt(a,0)+' دج');}
+  gl.forEach(x=>{const eq=w730of(x.m,x.q);
+    if(isIn)DB.stock.push({id:uid(),mizan:x.m,qoubal:x.q,w730:eq,source:'external',customerId:c.id,date:now});
+    let snap=null;if(!isIn){const ex=takeExact(x.q,x.m);if(ex)snap=JSON.parse(JSON.stringify(ex));else takeFromStock(x.q,x.m);}
+    DB.cash.push({id:uid(),customerId:c.id,kind,cur:'730',mizan:x.m,qoubal:x.q,amount:eq,date:now,...(snap?{ingotSnap:snap}:{})});});
+  if(gl.length)parts.push(gl.length+' سبيكة · '+fmt(gl.reduce((s,x)=>s+w730of(x.m,x.q),0),2)+' غ');
+  logAct('صوارد',(isIn?'أخذت من «':'دفعت لـ«')+c.name+'» — '+parts.join(' · '));
   save();closeModal();renderHome();try{renderDebts();}catch(e){}
-  toast((isIn?'✓ أخذت ':'✓ دفعت ')+fmt(a,0)+' دج — '+c.name);
+  toast((isIn?'✓ أخذت ':'✓ دفعت ')+parts.join(' · ')+' — '+c.name);
 }
 function openCashLedger(){
   const ev=[];
