@@ -3842,7 +3842,8 @@ function checkAutoBackup(){ // ملف نسخة على هذا الجهاز كل 8
   if(Date.now()-(+localStorage.getItem(BK)||0)<BK_EVERY||BK_ARMED)return;
   /* المتصفح يسمح بالتنزيل بعد لمسة من المستخدم: ننتظر أول لمسة ثم نحفظ الملف */
   BK_ARMED=true;
-  const go=()=>{if(window.GPLOCK&&GPLOCK.locked)return;
+  const go=e=>{if(window.GPLOCK&&GPLOCK.locked)return;
+    const tg=e&&e.target;if(tg&&tg.closest&&tg.closest('input,textarea,select,[contenteditable]'))return; // لمسة على حقل كتابة: لا نزعجها بالتنزيل
     document.removeEventListener('pointerdown',go,true);BK_ARMED=false;
     if(Date.now()-(+localStorage.getItem(BK)||0)<BK_EVERY)return;
     setTimeout(()=>{try{exportData(true);}catch(e){}},600);};
@@ -3967,7 +3968,14 @@ function fitInvoiceIfOpen(){
   if(pg&&!pg.classList.contains('hidden')&&INV&&INV.rows.every(r=>!String(r.mizan).trim()&&!String(r.qoubal).trim()))
     renderInvoiceForm();
 }
-let _rsz;window.addEventListener('resize',()=>{clearTimeout(_rsz);_rsz=setTimeout(fitInvoiceIfOpen,250);});
+/* ظهور لوحة المفاتيح يغيّر الارتفاع فقط: لا نعيد رسم الفاتورة وإلا ضاع الحقل الذي تكتب فيه واختفت اللوحة.
+   نعيد الضبط فقط عند تغيّر العرض (تدوير الشاشة/تكبير النافذة) ولا حقل مُركَّز داخل الفاتورة */
+let _rsz,_rszW=window.innerWidth;
+window.addEventListener('resize',()=>{clearTimeout(_rsz);_rsz=setTimeout(()=>{
+  const w=window.innerWidth;if(w===_rszW)return;_rszW=w;
+  const a=document.activeElement,f=document.getElementById('invoice-form');
+  if(a&&f&&f.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))return;
+  fitInvoiceIfOpen();},250);});
 function paintFSBtn(){
   const b=document.getElementById('fsbtn');if(!b)return;
   if(isStandalone()){b.style.display='none';return;}
