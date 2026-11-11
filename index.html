@@ -84,6 +84,11 @@ input[inputmode="decimal"]{direction:ltr}
   body.inv-fs #invoice-form .tbody .trow>div{padding:2px}
   body.inv-fs #invoice-form .tbody input{padding:8px 2px;font-size:14px}
   body.inv-fs #invoice-form .tbody .calc{font-size:13px}
+  body.inv-fs #invoice-form .trow{grid-template-columns:18px minmax(0,.95fr) minmax(0,.8fr) minmax(0,.82fr) minmax(0,1.3fr) minmax(0,1.36fr)}
+  body.inv-fs #invoice-form .tbody .idx{font-size:11.5px}
+  body.inv-fs #invoice-form .tbody input{font-size:13.5px;letter-spacing:-.2px}
+  body.inv-fs #invoice-form .trow2{grid-template-columns:minmax(0,1fr) auto auto;gap:12px}
+  body.inv-fs #invoice-form .trow2 .takein{grid-column:2 / 4;min-width:150px}
   body.inv-fs #invoice-form .totals{margin-top:7px}
   body.inv-fs #invoice-form .trow2>div{padding:7px 10px}
   body.inv-fs #invoice-form .tmain .lab,body.inv-fs #invoice-form .tfin .lab{font-size:14.5px}
@@ -92,6 +97,12 @@ input[inputmode="decimal"]{direction:ltr}
   body.inv-fs #invoice-form>.btn{padding:12px;font-size:15px;border-radius:13px}
   body.inv-fs #invoice-form #sh-res{max-height:24vh;overflow-y:auto}
 }
+.sugg{position:fixed;z-index:200;background:#fff;border:1.5px solid var(--line);border-radius:14px;box-shadow:0 14px 34px -10px rgba(14,20,40,.35);overflow-y:auto;overscroll-behavior:contain}
+.sugg button{display:block;width:100%;text-align:start;padding:12px 14px;font-size:15px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line2);background:#fff}
+.sugg button:last-child{border-bottom:0}
+.sugg button:active,.sugg button.hl{background:var(--gold-soft)}
+.sugg button b{color:var(--gold-deep)}
+.tbody .calc,.trow2 .v{white-space:nowrap}
 .ptitle{display:flex;align-items:center;gap:9px;margin:2px 2px 16px}
 .ptitle h2{margin:0;font-size:20px;font-weight:900;letter-spacing:-.4px}
 .ptitle .badge{margin-inline-start:auto;background:var(--card);color:var(--muted);font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;box-shadow:var(--sh-sm)}
@@ -1807,6 +1818,50 @@ function renderArchiveList(){
 const emptyBox=(t,s)=>`<div class="empty"><div class="eic">${ICON.receipt}</div><p>${t}</p><small>${s}</small></div>`;
 
 /* ========= مودال ========= */
+/* ===== اقتراحات الأسماء (بديل datalist الذي لا يعمل جيداً في أندرويد) =====
+   أي حقل له list="..." يُعرض تحته اقتراحات من قائمته وهو يكتب؛ الضغط على اسم يملأ الحقل ويطلق نفس أحداثه */
+(function(){
+  const norm=x=>String(x||'').trim().toLowerCase().replace(/ـ/g,'').replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ');
+  const eh=x=>String(x).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  let box=null,cur=null;
+  const opts=inp=>{const dl=document.getElementById(inp.dataset.sugg);return dl?[...dl.options].map(o=>o.value).filter(Boolean):[];};
+  function hide(){if(box){box.remove();box=null;}cur=null;}
+  function place(inp){if(!box)return;const r=inp.getBoundingClientRect(),vh=(window.visualViewport?visualViewport.height:innerHeight);
+    const below=vh-r.bottom-10,above=r.top-10,up=below<150&&above>below;
+    box.style.left=r.left+'px';box.style.width=r.width+'px';
+    if(up){box.style.top='';box.style.bottom=(innerHeight-r.top+4)+'px';box.style.maxHeight=Math.min(320,above)+'px';}
+    else{box.style.bottom='';box.style.top=(r.bottom+4)+'px';box.style.maxHeight=Math.max(110,Math.min(320,below))+'px';}}
+  function show(inp){
+    const q=norm(inp.value);let list=opts(inp);
+    if(q){list=list.filter(n=>norm(n).includes(q));list.sort((a,b)=>(norm(a).startsWith(q)?0:1)-(norm(b).startsWith(q)?0:1));}
+    list=list.slice(0,8);
+    if(!list.length||(list.length===1&&norm(list[0])===q)){hide();return;}
+    if(!box){box=document.createElement('div');box.className='sugg';document.body.appendChild(box);}
+    cur=inp;
+    box.innerHTML=list.map(n=>{const i=q?norm(n).indexOf(q):-1;
+      const label=i>=0&&norm(n).length===n.trim().length?eh(n.trim().slice(0,i))+'<b>'+eh(n.trim().slice(i,i+q.length))+'</b>'+eh(n.trim().slice(i+q.length)):eh(n);
+      return `<button type="button" data-v="${eh(n)}">${label}</button>`;}).join('');
+    place(inp);
+  }
+  const arm=t=>{if(t&&t.tagName==='INPUT'&&!t.dataset.sugg&&t.getAttribute('list')){t.dataset.sugg=t.getAttribute('list');t.removeAttribute('list');t.setAttribute('autocomplete','off');}return t&&t.dataset&&t.dataset.sugg;};
+  document.addEventListener('focusin',e=>{if(arm(e.target))show(e.target);});
+  document.addEventListener('input',e=>{if(e.target&&e.target.dataset&&e.target.dataset.sugg)show(e.target);});
+  document.addEventListener('focusout',e=>{if(e.target===cur)setTimeout(()=>{if(document.activeElement!==cur)hide();},180);});
+  document.addEventListener('pointerdown',e=>{
+    const b=e.target.closest&&e.target.closest('.sugg button');
+    if(!b){if(box&&!(e.target===cur))setTimeout(()=>{if(document.activeElement!==cur)hide();},180);return;}
+    e.preventDefault();const inp=cur;if(!inp)return;
+    inp.value=b.dataset.v;hide();
+    inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}));
+  },true);
+  if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(cur)place(cur);});
+  window.addEventListener('scroll',()=>{if(cur)place(cur);},true);
+  window._suggHide=hide;
+})();
+/* رقم أطول من خانته: نصغّر خطّه قليلاً بدل أن ينكسر أو يُقطع */
+function shrinkFit(el,min){if(!el)return;el.style.fontSize='';
+  let f=parseFloat(getComputedStyle(el).fontSize)||14;const m=min||9.5;
+  while(el.scrollWidth>el.clientWidth+1&&f>m){f-=0.5;el.style.fontSize=f+'px';}}
 function closeModal(){document.getElementById('modal-root').innerHTML=''}
 function sheet(title,body,lock){
   document.getElementById('modal-root').innerHTML=
@@ -2396,10 +2451,12 @@ function invDupMark(){ // تنبيه فوري أثناء كتابة فاتورة
 }
 function calcRow(i){const r=INV.rows[i],w=w730of(r.mizan,r.qoubal),t=w*(+r.price||0);
   const a=document.getElementById('r730-'+i),b=document.getElementById('rt-'+i);
-  if(a)a.textContent=w?fmt(w,2):'—';if(b)b.textContent=t?fmt(t,0):'—';}
+  if(a)a.textContent=w?fmt(w,2):'—';if(b)b.textContent=t?fmt(t,0):'—';
+  shrinkFit(a);shrinkFit(b);
+  document.querySelectorAll('#ibody input[data-r="'+i+'"]').forEach(x=>shrinkFit(x,10));}
 function refreshTotals(){let m=0,g=0;INV.rows.forEach(r=>{const w=w730of(r.mizan,r.qoubal);g+=w;m+=w*(+cleanNum(r.price)||0)});INV.money=m;INV.total730=g;
   document.getElementById('t730').textContent=g?fmt(g,2):'—';
-  document.getElementById('tmoney').textContent=m?fmt(m,0):'—';
+  document.getElementById('tmoney').textContent=m?fmt(m,0):'—';shrinkFit(document.getElementById('tmoney'),11);
   const prevEl=document.getElementById('tprev');prevEl.textContent=fmt(Math.abs(INV.prevBalance),0);prevEl.className='v num '+clsSign(INV.prevBalance);
 
   // حارس الكوفر: «أخذ» في الشراء يخرج نقداً فعلياً من الكوفر
@@ -2420,7 +2477,7 @@ function refreshTotals(){let m=0,g=0;INV.rows.forEach(r=>{const w=w730of(r.mizan
   const takenSign=INV.type==='buy'?+1:-1; // أخذ يرفع الرصيد · دفع يخفضه
   const paidEffect=INV.type==='buy'?-(INV.paid||0):0; // «دفع» في الشراء: دخل عندك فيخفض الرصيد (عكس أخذ)
   const finalSigned=INV.prevBalance+moneyEffect+takenSign*(INV.taken||0)+paidEffect;
-  const fEl=document.getElementById('tfinal');fEl.textContent=fmt(Math.abs(finalSigned),0);
+  const fEl=document.getElementById('tfinal');fEl.textContent=fmt(Math.abs(finalSigned),0);shrinkFit(fEl,12);
   fEl.style.color=finalSigned>0.0001?'#4fe0a0':(finalSigned<-0.0001?'#ff8095':'#efb52f');}
 function setType(t){INV.type=t;INV.taken=0;INV.paid=0;SH={target:'',mode:SH.mode,q:'all',res:null};renderInvoiceForm();}
 function setPure(p){INV.settled=p;renderInvoiceForm();}
