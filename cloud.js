@@ -67,7 +67,7 @@ function loginUI(){
   return new Promise(res=>{
     const ov=document.createElement('div');ov.id='cloud-login';
     ov.style.cssText='position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:#0e1530;padding:18px;font-family:Cairo,Tahoma,sans-serif;overflow:auto';
-    const signup=CFG.allowSignup!==false;
+    const signup=false; // يظهر فقط بعد التأكد أن التطبيق بلا مالك (أدناه)
     ov.innerHTML=`<div style="width:100%;max-width:380px;background:#fff;border-radius:22px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.4)">
       <div style="text-align:center;font-weight:900;font-size:22px;color:#0e1428">ذهب برو <span style="color:#e39a10">730</span></div>
       <div style="text-align:center;font-size:12.5px;color:#8b92a9;font-weight:700;margin:4px 0 18px">سجّل الدخول إلى حساب محلّك</div>
@@ -75,18 +75,48 @@ function loginUI(){
       <input id="cl-pass" type="password" autocomplete="current-password" placeholder="كلمة السر" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid #e1e4ef;font-size:15px;direction:ltr;margin-bottom:12px;box-sizing:border-box">
       <div id="cl-err" style="color:#e33f57;font-weight:800;font-size:12.5px;min-height:18px;margin-bottom:8px"></div>
       <button id="cl-in" style="width:100%;padding:14px;border-radius:13px;background:linear-gradient(135deg,#141c38,#243158);color:#fff;font-weight:800;font-size:16px;border:0;cursor:pointer">دخول</button>
-      ${signup?'<button id="cl-up" style="width:100%;padding:12px;border-radius:13px;background:#fdf4d6;color:#b9820a;font-weight:800;font-size:14px;border:0;cursor:pointer;margin-top:10px">إنشاء حساب جديد</button>':''}
+      <button id="cl-up" style="display:none;width:100%;padding:12px;border-radius:13px;background:#fdf4d6;color:#b9820a;font-weight:800;font-size:14px;border:0;cursor:pointer;margin-top:10px">إنشاء حساب المحل (أول مرة فقط)</button>
       <button id="cl-fg" style="width:100%;padding:10px;background:none;color:#8b92a9;font-weight:700;font-size:12.5px;border:0;cursor:pointer;margin-top:6px">نسيت كلمة السر؟</button></div>`;
     document.body.appendChild(ov);
     const $=id=>ov.querySelector('#'+id),err=m=>{$('cl-err').textContent=m||'';};
     const go=async(mk)=>{const m=$('cl-mail').value.trim(),p=$('cl-pass').value;if(!m||!p)return err('أدخل البريد وكلمة السر');err('… جارٍ');
       try{await mk(m,p);ov.remove();res();}catch(e){err(arErr(e));}};
     $('cl-in').onclick=()=>go((m,p)=>auth.signInWithEmailAndPassword(m,p));
-    if($('cl-up'))$('cl-up').onclick=()=>go((m,p)=>auth.createUserWithEmailAndPassword(m,p));
+    $('cl-up').onclick=()=>go((m,p)=>auth.createUserWithEmailAndPassword(m,p));
+    /* التطبيق لمحل واحد: زر إنشاء الحساب يظهر فقط إن لم يُسجَّل المالك بعد */
+    if(CFG.allowSignup!==false)db.ref('owner').once('value').then(s=>{if(!s.val())$('cl-up').style.display='block';}).catch(()=>{});
     $('cl-pass').onkeydown=e=>{if(e.key==='Enter')$('cl-in').click();};
     $('cl-fg').onclick=async()=>{const m=$('cl-mail').value.trim();if(!m)return err('اكتب بريدك أولاً');try{await auth.sendPasswordResetEmail(m);err('أُرسل رابط إعادة التعيين إلى بريدك');}catch(e){err(arErr(e));}};
   });
 }
+/* ===== محل واحد فقط: أول حساب يدخل يصبح «المالك» ولا يتغيّر (القواعد تمنع غيره من بيانات المحل) ===== */
+const OWNK='gp_cloud_owner';
+async function ensureOwner(uid){
+  const cached=ls.get(OWNK);
+  if(!CONNECTED)await new Promise(r=>{const t=setTimeout(r,6000);const h=db.ref('.info/connected').on('value',x=>{if(x.val()){clearTimeout(t);db.ref('.info/connected').off('value',h);r();}});});
+  if(!CONNECTED)return cached&&cached!==uid?'blocked':'unknown';
+  try{
+    let o=(await db.ref('owner').once('value')).val();
+    if(!o){ // أول مرة: نسجّل هذا الحساب مالكاً (مرة واحدة فقط)
+      try{const r=await db.ref('owner').transaction(cur=>cur?undefined:uid);o=r.committed?uid:(r.snapshot&&r.snapshot.val());}
+      catch(e){o=(await db.ref('owner').once('value')).val();}
+    }
+    if(o)ls.set(OWNK,o);
+    return o===uid?'ok':(o?'blocked':'unknown');
+  }catch(e){return cached&&cached!==uid?'blocked':'unknown';}
+}
+function blockedUI(email){
+  const ov=document.createElement('div');ov.id='cloud-blocked';
+  ov.style.cssText='position:fixed;inset:0;z-index:100001;display:grid;place-items:center;background:#0e1530;padding:18px;font-family:Cairo,Tahoma,sans-serif';
+  ov.innerHTML=`<div style="width:100%;max-width:380px;background:#fff;border-radius:22px;padding:24px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.4)">
+    <div style="font-size:40px">⛔</div>
+    <div style="font-weight:900;font-size:18px;color:#0e1428;margin:6px 0 8px">هذا التطبيق مسجَّل لمحل واحد</div>
+    <div style="font-size:13px;color:#59607a;font-weight:700;line-height:1.9">الحساب <b dir="ltr">${esc(email||'')}</b> ليس حساب المحل.<br>لا يمكن استعمال حساب جديد هنا.<br>إن كنت زبوناً فادخل من بوابة الزبائن.</div>
+    <button id="cb-out" style="width:100%;margin-top:16px;padding:13px;border-radius:13px;background:linear-gradient(135deg,#141c38,#243158);color:#fff;font-weight:800;font-size:15px;border:0;cursor:pointer">تسجيل الخروج</button></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#cb-out').onclick=()=>auth.signOut().then(()=>location.reload());
+}
+G._ensureOwner=ensureOwner;
 function authReady(){return new Promise(res=>{const u=auth.onAuthStateChanged(x=>{u();res(x);});});}
 
 /* ---------- المزامنة ---------- */
@@ -326,6 +356,7 @@ G.init=async function(){
   let u=await authReady();
   if(!u){await loginUI();u=auth.currentUser;}
   UID=u.uid;EMAIL=u.email||'';
+  if(await ensureOwner(UID)==='blocked'){blockedUI(EMAIL);return new Promise(()=>{});} // قبل أي مساس ببيانات هذا الجهاز
   if(ls.get(LSK.uid)&&ls.get(LSK.uid)!==UID){try{localStorage.removeItem(KEY);}catch(e){} ls.del(LSK.tomb);ls.del(LSK.known);DB=normDB(seed());} // حساب آخر على نفس الجهاز: لا نخلط البيانات
   ls.set(LSK.uid,UID);
   const wasDirty=ls.get(LSK.dirty)==='1';

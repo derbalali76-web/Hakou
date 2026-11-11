@@ -2,22 +2,26 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "owner": {
+      ".read": true,
+      ".write": "auth != null && !data.exists() && newData.val() === auth.uid && !root.child('portalOwner').child(auth.uid).exists()"
+    },
     "shops": {
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && !root.child('portalOwner').child($uid).exists()"
+        ".read": "auth != null && auth.uid === $uid && root.child('owner').val() === auth.uid",
+        ".write": "auth != null && auth.uid === $uid && root.child('owner').val() === auth.uid"
       }
     },
     "portalOwner": {
       "$cuid": {
         ".read": "auth != null && data.val() === auth.uid",
-        ".write": "auth != null && !data.exists() && newData.val() === auth.uid"
+        ".write": "auth != null && root.child('owner').val() === auth.uid && !data.exists() && newData.val() === auth.uid"
       }
     },
     "portal": {
       "$cuid": {
         ".read": "auth != null && auth.uid === $cuid",
-        ".write": "auth != null && root.child('portalOwner').child($cuid).val() === auth.uid",
+        ".write": "auth != null && root.child('owner').val() === auth.uid && root.child('portalOwner').child($cuid).val() === auth.uid",
         ".validate": "!newData.exists() || (newData.hasChildren(['v','t']) && newData.child('v').isString() && newData.child('v').val().length < 2000000)"
       }
     }
