@@ -10,6 +10,7 @@
     var mr=document.getElementById('modal-root');
     if(mr&&mr.innerHTML.trim()){try{closeModal();}catch(e){mr.innerHTML='';}arm();return;}
     if(page()!=='home'){try{go('home');}catch(e){}arm();return;}
+    if(window.GPKIOSK&&GPKIOSK.on){arm();return;}                     // وضع الكشك: الرجوع لا يُغلق التطبيق
     if(Date.now()-warned>2500){warned=Date.now();try{toast('اضغط رجوع مرة أخرى للخروج');}catch(e){}arm();return;}
     /* ضغطة ثانية خلال ثانيتين: لا نعيد الفخّ ← الرجوع التالي يُغلق التطبيق */
     try{history.back();}catch(e){}

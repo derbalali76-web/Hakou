@@ -393,6 +393,7 @@ G.settingsBlock=function(){
     <div style="font-size:12px;color:#2e7a57;font-weight:700;line-height:1.9;margin-top:8px;direction:ltr;text-align:right;word-break:break-all">${esc(EMAIL)}</div>
     <div style="font-size:11.5px;color:#2e7a57;font-weight:700;line-height:1.8">${esc(chipText())}</div>
     ${window.GPLOCK?`<div style="display:flex;gap:8px;margin-top:10px"><button onclick="closeModal();GPLOCK.lock()" style="flex:1;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13px">🧭 قفل الآن</button><button onclick="closeModal();GPLOCK.change()" style="flex:1;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13px">تغيير الاتجاه السري</button></div>`:''}
+    ${window.GPKIOSK?GPKIOSK.settingsBtn():''}
     <button onclick="GPCLOUD.passSheet()" style="margin-top:10px;width:100%;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13.5px">🔑 تغيير كلمة السر</button>
     <button onclick="GPCLOUD.logout()" style="margin-top:10px;width:100%;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13.5px">تسجيل الخروج</button></div>`;
 };
