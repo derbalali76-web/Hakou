@@ -3584,7 +3584,7 @@ function viewInvoicePDF(id,download,backCid){const inv=getDoc(id);if(!inv)return
   setTimeout(()=>{try{win.focus();win.print()}catch(e){}},400);
 }
 
-/* ========= النسخ الاحتياطي التلقائي كل 12 ساعة ========= */
+/* ========= النسخ الاحتياطي التلقائي إلى الهاتف كل 8 ساعات ========= */
 const BK='goldpro730_lastbackup';
 function exportData(auto){
   if(!auto){logAct('إعدادات','تصدير نسخة احتياطية');save();}
@@ -3596,7 +3596,7 @@ function exportData(auto){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   try{localStorage.setItem(BK,String(Date.now()));}catch(e){}
-  toast(auto?'نسخة احتياطية تلقائية (12 ساعة)':'تم تصدير نسخة من البيانات');
+  toast(auto?'💾 نسخة احتياطية حُفظت في التنزيلات (كل 8 ساعات)':'تم تصدير نسخة من البيانات');
   renderHome();
 }
 function importData(file){
@@ -3805,7 +3805,9 @@ function tgSaveCfg(){
   t.token=document.getElementById('tg-token').value.trim();
   t.chat=document.getElementById('tg-chat').value.trim();
   t.on=document.getElementById('tg-on').checked;
-  tgSet(t);toast('حُفظ الإعداد');openBackup();
+  tgSet(t);
+  if(window.GPCLOUD&&GPCLOUD.active&&GPCLOUD.setCfg)GPCLOUD.setCfg('tg',{token:t.token,chat:t.chat,on:!!t.on}); // يصل كل أجهزة المحل
+  toast('حُفظ الإعداد'+(window.GPCLOUD&&GPCLOUD.active?' — لكل أجهزة المحل':''));openBackup();
 }
 async function tgSendNow(){
   const t=tgGet();
@@ -3821,14 +3823,30 @@ function tgCheckDaily(){
   if(TG_BUSY&&Date.now()-TG_BUSY_AT>3*60*1000)TG_BUSY=false; // حارس: لا يبقى «مشغولاً» للأبد
   if(TG_BUSY||(t.try&&Date.now()-t.try<2*60*1000))return; // لا نكرر المحاولة أسرع من دقيقتين
   TG_BUSY=true;TG_BUSY_AT=Date.now();
-  setTimeout(async()=>{try{const r=await tgSend(true);if(r.ok)toast('نسخة أُرسلت إلى تيليجرام');}catch(e){}finally{TG_BUSY=false;}},1500);
+  setTimeout(async()=>{try{
+    const cloud=window.GPCLOUD&&GPCLOUD.active&&GPCLOUD.claim;
+    let c=null;
+    if(cloud){ // السحابة: جهاز واحد فقط يرسل كل ساعتين لكل المحل
+      c=await GPCLOUD.claim('tgLast',TG_EVERY);
+      if(!c.ok){if(c.prev){const t2=tgGet();t2.last=Math.max(+t2.last||0,+c.prev);tgSet(t2);}return;}}
+    const r=await tgSend(true);
+    if(r.ok)toast('نسخة أُرسلت إلى تيليجرام');
+    else if(cloud&&c)GPCLOUD.release('tgLast',c.prev); // فشل الإرسال: نحرّر الحجز ليحاول جهاز آخر
+  }catch(e){}finally{TG_BUSY=false;}},1500);
 }
 
-function checkAutoBackup(){
-  if(FILE_MODE||(window.GPCLOUD&&GPCLOUD.active))return; // الملف أو السحابة: لا حاجة لتنزيل نسخ تلقائية
-  const last=+localStorage.getItem(BK)||0;
+const BK_EVERY=8*60*60*1000;let BK_ARMED=false;
+function checkAutoBackup(){ // ملف نسخة على هذا الجهاز كل 8 ساعات (ويندوز يحفظ نسخه اليومية في مجلده)
+  if(FILE_MODE)return;
   if(!DB.customers.length&&!DB.invoices.length)return;
-  if(Date.now()-last>12*60*60*1000)setTimeout(()=>exportData(true),1500);
+  if(Date.now()-(+localStorage.getItem(BK)||0)<BK_EVERY||BK_ARMED)return;
+  /* المتصفح يسمح بالتنزيل بعد لمسة من المستخدم: ننتظر أول لمسة ثم نحفظ الملف */
+  BK_ARMED=true;
+  const go=()=>{if(window.GPLOCK&&GPLOCK.locked)return;
+    document.removeEventListener('pointerdown',go,true);BK_ARMED=false;
+    if(Date.now()-(+localStorage.getItem(BK)||0)<BK_EVERY)return;
+    setTimeout(()=>{try{exportData(true);}catch(e){}},600);};
+  document.addEventListener('pointerdown',go,true);
 }
 function openBackup(){
   const last=+localStorage.getItem(BK)||0;
@@ -3867,7 +3885,7 @@ function openBackup(){
     <div style="background:var(--card);border-radius:var(--r-md);padding:16px;margin-bottom:14px;border:1px solid var(--line);box-shadow:var(--sh-sm)">
       <div style="font-size:12.5px;color:var(--muted);font-weight:800">آخر نسخة على الجهاز</div>
       <div style="font-weight:800;font-size:15px;margin-top:6px">${since}</div>
-      <div style="font-size:12px;color:var(--muted);font-weight:700;margin-top:10px;line-height:1.7">تُنشأ نسخة تلقائياً كل 12 ساعة عند فتح التطبيق.</div></div>
+      <div style="font-size:12px;color:var(--muted);font-weight:700;margin-top:10px;line-height:1.7">تُحفظ نسخة تلقائياً في «التنزيلات» على هذا الجهاز كل 8 ساعات (عند أول لمسة بعد مرورها والتطبيق مفتوح).</div></div>
     <button class="btn primary" style="margin-bottom:11px" onclick="exportData(false)">⬇ تصدير نسخة الآن</button>
     <button class="btn ghost" style="margin-bottom:18px" onclick="document.getElementById('imp').click()">⬆ استيراد نسخة</button>
     <input type="file" id="imp" accept="application/json,.json" style="display:none" onchange="if(this.files[0])importData(this.files[0])">
@@ -3887,7 +3905,7 @@ function openBackup(){
         <span style="width:34px;height:34px;border-radius:11px;background:#2aa3ef;color:#fff;display:grid;place-items:center;font-size:17px;flex:none">✈️</span>
         <div style="font-weight:900;font-size:15px;color:#1a6ca8">نسخة كل ساعتين إلى تيليجرامك</div></div>
       <div style="font-size:11.5px;color:#4d7ea8;font-weight:700;line-height:1.8;margin-bottom:13px">
-        تُرسل نسخة من بياناتك مرة كل ساعتين (ما دام التطبيق مفتوحاً) إلى <b>محادثتك الخاصة</b> في تيليجرام عند توفّر الإنترنت.
+        تُرسل نسخة من بياناتك مرة كل ساعتين (ما دام التطبيق مفتوحاً${window.GPCLOUD&&GPCLOUD.active?' على أي جهاز من أجهزة المحل — نسخة واحدة لا تتكرر':''}) إلى <b>محادثتك الخاصة</b> في تيليجرام عند توفّر الإنترنت.
         بياناتك تذهب إلى حسابك أنت فقط — لا يراها أحد غيرك.
         ${t.on?'<br><b style="color:#1a6ca8">الإرسال مفعّل حالياً.</b>':''}</div>
 

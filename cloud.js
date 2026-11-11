@@ -255,8 +255,37 @@ async function runMerge(){   // تحديث لحظي: اسحب وادمج ما إ
   }catch(e){PENDING_LIVE=true;}
 }
 G._runMerge=runMerge;
+/* ===== إعدادات مشتركة بين أجهزة المحل (خارج بيانات الحسابات فلا تدخل النسخ الاحتياطية) =====
+   cfg/tg = إعداد تيليجرام (يُضبط مرة على أي جهاز) · cfg/tgLast = آخر إرسال (حجز ذرّي يمنع التكرار بين الأجهزة) */
+const CFG_VAL={};
+G.cfgVal=k=>CFG_VAL[k];
+G.setCfg=(k,v)=>{if(!G.active)return;CFG_VAL[k]=v;try{db.ref('shops/'+UID).update({['cfg/'+k]:v==null?null:v});}catch(e){}};
+G.claim=async(k,every)=>{ // يحجز إرسالاً واحداً لكل المحل خلال المدة
+  if(!G.active||!CONNECTED)return {ok:false,offline:true};
+  let prev=null;
+  try{const r=await db.ref('shops/'+UID+'/cfg/'+k).transaction(cur=>{prev=cur;const now=Date.now();if(cur&&now-(+cur)<every-60000)return;return now;});
+    if(!r.committed){CFG_VAL[k]=+prev||CFG_VAL[k];return {ok:false,prev};}
+    CFG_VAL[k]=Date.now();return {ok:true,prev};
+  }catch(e){return {ok:false,err:true};}
+};
+G.release=(k,prev)=>{try{CFG_VAL[k]=prev||null;db.ref('shops/'+UID+'/cfg/'+k).set(prev||null);}catch(e){}};
+function watchCfg(){
+  db.ref('shops/'+UID+'/cfg').on('value',s=>{const v=s.val()||{};
+    Object.keys(CFG_VAL).forEach(k=>{if(!(k in v))delete CFG_VAL[k];});Object.assign(CFG_VAL,v);
+    try{ // مزامنة إعداد تيليجرام إلى هذا الجهاز
+      const K='goldpro730_tg';let t={};try{t=JSON.parse(localStorage.getItem(K))||{};}catch(_){}
+      let ch=false;
+      if(v.tg&&typeof v.tg==='object'){for(const f of ['token','chat','on'])if(v.tg[f]!==undefined&&t[f]!==v.tg[f]){t[f]=v.tg[f];ch=true;}}
+      if(v.tgLast&&+v.tgLast>(+t.last||0)){t.last=+v.tgLast;t.err='';ch=true;}
+      if(ch)localStorage.setItem(K,JSON.stringify(t));
+      // أول مرة: إعداد محلي موجود ولم يُرفع بعد → نرفعه
+      if(!v.tg&&t.token&&t.chat)G.setCfg('tg',{token:t.token,chat:t.chat,on:!!t.on});
+    }catch(_){}
+  });
+}
+
 function watchRev(){
-  if(WATCHING)return;WATCHING=true;
+  if(WATCHING)return;WATCHING=true;watchCfg();
   db.ref('shops/'+UID+'/d').on('value',s=>{LD=s.val();HD=true;scheduleMerge();});
   db.ref('shops/'+UID+'/del').on('value',s=>{LX=s.val();HX=true;scheduleMerge();});
   if(window.closeModal&&!window.closeModal._gpLive){const _cm=window.closeModal;

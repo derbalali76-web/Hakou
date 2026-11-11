@@ -1,5 +1,5 @@
 /* ذهب برو 730 — Service Worker: يعمل التطبيق دون اتصال بعد أول فتح */
-const V='gp730-v16';
+const V='gp730-v17';
 const SHELL=['./','index.html','portal.html','manifest.json','portal.webmanifest','icon-192.png','icon-512.png','icon-maskable-512.png','apple-touch-icon.png','portal-192.png','portal-512.png','portal-apple.png','firebase-config.js','cloud.js','lock.js','back.js',
   'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js','https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js','https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>Promise.all(SHELL.map(u=>c.add(u).catch(()=>{})))).then(()=>self.skipWaiting()));});
