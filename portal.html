@@ -119,7 +119,27 @@ if(typeof firebase==='undefined'||!firebase.initializeApp){
       <div class="tot"><div><span>عدد القطع</span><span>${rows.length}</span></div><div><span>الوزن الإجمالي</span><span dir="ltr">${G(tw)} غ</span></div><div><span>المعادل 730</span><span dir="ltr">${G(e.g)} غ</span></div><div class="big"><span>المبلغ</span><span dir="ltr">${D(e.money)} دج</span></div></div>
       <button class="btn" style="margin-top:14px" onclick="closeSh()">إغلاق</button></div>`;
     document.body.appendChild(bg);};
-  function render(o){closeSh();
+  function passView(){
+    const inp=(id,ph,ac)=>`<input id="${id}" type="password" autocomplete="${ac}" placeholder="${ph}" style="margin-bottom:10px">`;
+    const bg=document.createElement('div');bg.className='sh-bg';bg.id='shbg';bg.dataset.keep='1';bg.onclick=ev=>{if(ev.target===bg)closeSh();};
+    bg.innerHTML=`<div class="sh"><div class="inv-h"><div class="n">تغيير كلمة السر</div></div>
+      ${inp('pw-cur','كلمة السر الحالية','current-password')}${inp('pw-new','الجديدة (6 أحرف على الأقل)','new-password')}${inp('pw-new2','أعد كتابة الجديدة','new-password')}
+      <div id="pw-err" style="color:#e33f57;font-weight:800;font-size:12.5px;min-height:18px;margin-bottom:8px"></div>
+      <button class="btn" id="pw-go">حفظ</button><button class="out" style="margin-top:10px" onclick="closeSh()">إلغاء</button></div>`;
+    document.body.appendChild(bg);
+    document.getElementById('pw-go').onclick=async()=>{
+      const v=id=>document.getElementById(id).value,er=document.getElementById('pw-err'),cur=v('pw-cur'),np=v('pw-new');
+      if(!cur)return er.textContent='اكتب كلمة السر الحالية';
+      if(np.length<6)return er.textContent='كلمة السر الجديدة 6 أحرف على الأقل';
+      if(np!==v('pw-new2'))return er.textContent='التأكيد غير مطابق';
+      er.textContent='… جارٍ';
+      try{const u=auth.currentUser;
+        await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,cur));
+        await u.updatePassword(np);closeSh();alert('✓ تغيّرت كلمة السر');
+      }catch(e){er.textContent=(e&&/wrong-password|invalid-credential|invalid-login/.test(e.code||''))?'كلمة السر الحالية خاطئة':(e&&e.code==='auth/network-request-failed'?'لا يوجد اتصال بالإنترنت':'تعذّر التغيير — حاول لاحقاً');}
+    };
+  }
+  function render(o){{const x=document.getElementById('shbg');if(x&&!x.dataset.keep)x.remove();} /* تحديث لحظي لا يغلق نافذة كلمة السر */
     const bd=side(o.bal.d,'d',D),bg=side(o.bal.g,'g',G);
     const list=(o.ev||[]).filter(e=>!(e.k==='cash'&&e.nb));window.EVS=list;
     const row=(i,t1,t2,am,cls,tap)=>`<div class="it tap" ${tap?`onclick="showInv(${i})"`:''}><div class="mn"><div class="t1">${t1}</div><div class="t2">${t2}</div></div><div class="am ${cls||''}">${am}</div>${tap?'<span class="ch">‹</span>':''}</div>`;
@@ -139,8 +159,10 @@ if(typeof firebase==='undefined'||!firebase.initializeApp){
       <div><div class="l">الذهب (730)</div><div class="v ${bg[0]}">${bg[2]} <small style="font-size:13px">غ</small></div><div class="s ${bg[0]}">${bg[1]}</div></div></div></div>
       <div class="card"><h3>معاملاتك</h3>${ev||'<div class="empty">لا توجد معاملات بعد</div>'}</div>
       <div class="upd">آخر تحديث: ${new Date(o.t).toLocaleString('ar-DZ')}</div>
+      <button class="out" id="pw">🔑 تغيير كلمة السر</button>
       <button class="out" id="lo">تسجيل الخروج</button></div>`;
     document.getElementById('lo').onclick=()=>auth.signOut();
+    document.getElementById('pw').onclick=passView;
   }
   let settled=false;
   const slow=setTimeout(()=>{if(!settled){hint(false);loginView();}},10000);

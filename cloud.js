@@ -393,7 +393,46 @@ G.settingsBlock=function(){
     <div style="font-size:12px;color:#2e7a57;font-weight:700;line-height:1.9;margin-top:8px;direction:ltr;text-align:right;word-break:break-all">${esc(EMAIL)}</div>
     <div style="font-size:11.5px;color:#2e7a57;font-weight:700;line-height:1.8">${esc(chipText())}</div>
     ${window.GPLOCK?`<div style="display:flex;gap:8px;margin-top:10px"><button onclick="closeModal();GPLOCK.lock()" style="flex:1;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13px">🧭 قفل الآن</button><button onclick="closeModal();GPLOCK.change()" style="flex:1;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13px">تغيير الاتجاه السري</button></div>`:''}
+    <button onclick="GPCLOUD.passSheet()" style="margin-top:10px;width:100%;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13.5px">🔑 تغيير كلمة السر</button>
     <button onclick="GPCLOUD.logout()" style="margin-top:10px;width:100%;padding:11px;border-radius:11px;background:#fff;border:1.5px solid #a8e2c4;color:#0d7a48;font-weight:800;font-size:13.5px">تسجيل الخروج</button></div>`;
+};
+/* ===== تغيير كلمة سر حساب المحل ===== */
+async function changePass(cur,np,np2){
+  if(!cur)return 'اكتب كلمة السر الحالية';
+  if(String(np).length<6)return 'كلمة السر الجديدة 6 أحرف على الأقل';
+  if(np!==np2)return 'تأكيد كلمة السر غير مطابق';
+  if(np===cur)return 'كلمة السر الجديدة مثل الحالية';
+  if(!CONNECTED)return 'يلزم اتصال بالإنترنت لتغيير كلمة السر';
+  const u=auth.currentUser;if(!u||!u.email)return 'سجّل الدخول أولاً';
+  try{
+    await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,cur));
+    await u.updatePassword(np);
+    return '';
+  }catch(e){
+    if(e&&(e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'||e.code==='auth/invalid-login-credentials'))return 'كلمة السر الحالية خاطئة';
+    return arErr(e);
+  }
+}
+G.changePass=changePass;
+G.passSheet=function(){
+  const inp=(id,ph,ac)=>`<input id="${id}" type="password" autocomplete="${ac}" placeholder="${ph}" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--line);font-size:15px;direction:ltr;margin-bottom:10px;box-sizing:border-box">`;
+  sheet('تغيير كلمة السر',`
+    <div style="font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:12px;line-height:1.8">الحساب: <b dir="ltr">${esc(EMAIL)}</b></div>
+    ${inp('pw-cur','كلمة السر الحالية','current-password')}
+    ${inp('pw-new','كلمة السر الجديدة (6 أحرف على الأقل)','new-password')}
+    ${inp('pw-new2','أعد كتابة كلمة السر الجديدة','new-password')}
+    <div id="pw-err" style="color:var(--red);font-weight:800;font-size:12.5px;min-height:18px;margin-bottom:8px"></div>
+    <button class="btn primary" id="pw-go" onclick="GPCLOUD.passSave()">حفظ كلمة السر الجديدة</button>
+    <div style="font-size:11.5px;color:var(--muted);font-weight:700;margin-top:10px;line-height:1.8">بعد التغيير قد تطلب أجهزتك الأخرى الدخول من جديد بكلمة السر الجديدة. بياناتها لا تضيع.</div>`);
+};
+G.passSave=async function(){
+  const v=id=>document.getElementById(id).value,err=document.getElementById('pw-err'),b=document.getElementById('pw-go');
+  err.textContent='… جارٍ';b.disabled=true;
+  const m=await changePass(v('pw-cur'),v('pw-new'),v('pw-new2'));
+  b.disabled=false;
+  if(m){err.textContent=m;return;}
+  try{logAct('إعدادات','تغيير كلمة سر حساب المحل');save();}catch(e){}
+  closeModal();toast('✓ تغيّرت كلمة السر');
 };
 G.logout=async function(){
   if(ls.get(LSK.dirty)==='1'&&!confirm('توجد تعديلات لم تُرفع بعد إلى السحابة. الخروج الآن قد يُضيعها.\nمتابعة؟'))return;
