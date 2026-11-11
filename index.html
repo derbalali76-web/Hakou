@@ -920,6 +920,7 @@ function storeConnect(r){ // نتيجة /api/load → نختار الأحدث ب
 const STORE_PATIENT=(()=>{try{return location.protocol==='file:'&&/Windows/i.test(navigator.userAgent)}catch(e){return false}})();
 function storeInit(){ // عند الفتح: ننتظر الخادم المحلي قليلاً (ويندوز) ثم نقرأ الملف
   if(typeof fetch!=='function')return Promise.resolve();
+  if(/^https:/.test(location.protocol))return Promise.resolve(); // نسخة الإنترنت: لا خادم محلي — ولا نطلب إذن «الوصول لتطبيقات الجهاز»
   const deadline=Date.now()+(STORE_PATIENT?6000:700);
   const attempt=()=>fetchT(SRV+'/api/load',1500).then(storeConnect).catch(e=>{
     if(e&&e.fatal)return;if(Date.now()<deadline)return new Promise(r=>setTimeout(r,350)).then(attempt);});
