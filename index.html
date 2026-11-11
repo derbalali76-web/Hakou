@@ -156,6 +156,14 @@ input[inputmode="decimal"]{direction:ltr}
 .assets .aic{width:44px;height:44px;border-radius:14px;background:rgba(239,181,47,.16);display:grid;place-items:center;font-size:20px;flex:none}
 .assets .albl{font-weight:800;font-size:15px}
 .assets .aval{font-size:34px;font-weight:900;margin-top:16px;letter-spacing:-1px;line-height:1;color:var(--gold)}
+.qcash{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.qcash button{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 10px;border-radius:var(--r-lg);color:#fff;text-align:start;box-shadow:var(--sh-md);transition:transform .12s}
+.qcash button:active{transform:scale(.97)}
+.qcash .qin{background:linear-gradient(135deg,#12a866,#0d8b53)}
+.qcash .qout{background:linear-gradient(135deg,#e33f57,#c72d44)}
+.qcash .qic{width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-weight:900;font-size:19px;flex:none}
+.qcash b{display:block;font-size:15px;font-weight:900;line-height:1.2}
+.qcash small{display:block;font-size:10.5px;font-weight:700;opacity:.85}
 .assets .aunit{font-size:15px;font-weight:800;margin-inline-start:7px;opacity:.75}
 .assets .arows{margin-top:16px;border-top:1px solid rgba(255,255,255,.12);padding-top:13px;display:grid;gap:9px}
 .assets .arow{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700}
@@ -411,6 +419,7 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
   #page-home{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
   #page-home .ptitle{grid-column:1/-1;margin-bottom:0}
   #page-home #open-slot{grid-column:1/-1}
+  #page-home .qcash{grid-column:1/-1;margin:0}
   #page-home .stat{margin-bottom:0;padding:30px}
   #page-home .stat .val{font-size:48px;margin-top:24px}
   #page-home .stat .unit{font-size:20px}
@@ -516,7 +525,11 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
 /* ===== الرئيسية على الهاتف: شاشة واحدة منظّمة بلا تمرير ===== */
 @media (max-width:899px){
   #page-home:not(.hidden){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;
-    grid-template-rows:auto minmax(max-content,1.25fr) minmax(max-content,1fr) minmax(max-content,1fr) minmax(max-content,.7fr)}
+    grid-template-rows:auto minmax(max-content,1.25fr) minmax(max-content,1fr) minmax(max-content,1fr) minmax(max-content,.7fr) auto}
+  #page-home .qcash{grid-column:1/-1;margin:0;gap:10px}
+  #page-home .qcash button{padding:10px 8px;border-radius:18px}
+  #page-home .qcash .qic{width:30px;height:30px;font-size:17px}
+  #page-home .qcash b{font-size:14px}
   #page-home .ptitle{display:none}
   #page-home #open-slot{grid-column:1/-1}
   #page-home #open-slot:empty{display:none}
@@ -550,6 +563,8 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
 }
 @media (max-width:899px) and (max-height:780px){
   #page-home:not(.hidden){gap:8px;padding:10px}
+  #page-home .qcash button{padding:8px}
+  #page-home .qcash small{display:none}
   #page-home .stat{padding:11px 12px}
   #page-home .stat .ic{width:32px;height:32px;border-radius:10px}
   #page-home .stat .ic svg{width:17px;height:17px}
@@ -649,6 +664,10 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
     <div class="atop"><span class="aic">🏦</span><span class="albl">الأصول الإجمالية</span></div>
     <div class="aval num" id="assets-val">0<span class="aunit">دج</span></div>
     <div class="arows" id="assets-rows"></div>
+  </div>
+  <div class="qcash">
+    <button class="qin" onclick="openQuickCash('in')"><span class="qic">↓</span><span><b>أخذت صوارد</b><small>تزيد الكوفر</small></span></button>
+    <button class="qout" onclick="openQuickCash('out')"><span class="qic">↑</span><span><b>دفعت صوارد</b><small>تنقص الكوفر</small></span></button>
   </div>
 </div>
 
@@ -3075,6 +3094,54 @@ function saveLend(id){
 }
 
 /* ========= صوارد الكوفر ========= */
+/* ===== أخذت / دفعت صوارد (من الرئيسية) =====
+   أخذت = دخل الكوفر (الزبون دفع: kind 'pay') · دفعت = خرج من الكوفر (الزبون أخذ: kind 'take') — نفس قيود بطاقة الزبون */
+const qn=(v,d=0)=>'<b dir="ltr" class="num" style="unicode-bidi:isolate;display:inline-block">'+grp(v,d)+'</b>'; // رقم معزول الاتجاه
+const qesc=t=>String(t==null?'':t).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function openQuickCash(dir){
+  const isIn=dir==='in',col=isIn?'#0d8b53':'#c72d44';
+  const names=DB.customers.map(c=>({c,t:custLastActivity(c.id)})).sort((a,b)=>b.t-a.t).map(x=>`<option value="${qesc(x.c.name)}">`).join('');
+  sheet(isIn?'أخذت صوارد':'دفعت صوارد',`
+    <div style="background:${isIn?'linear-gradient(135deg,#eafaf2,#d5f3e4)':'linear-gradient(135deg,#fff3f5,#fde3e8)'};border:1px solid ${isIn?'#bfe9d4':'#f6c9d1'};border-radius:16px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;font-weight:800;font-size:13px;color:${col}">
+      <span>صوارد الكوفر الآن</span><span style="margin-inline-start:auto;font-size:16px;font-weight:900">${qn(coffer())} دج</span></div>
+    <div class="field"><label>اسم الزبون</label>
+      <input id="qc-n" list="qc-dl" placeholder="اكتب أو اختر من دفتر الديون..." autocomplete="off" oninput="qcHint('${dir}')" onchange="qcHint('${dir}')">
+      <datalist id="qc-dl">${names}</datalist></div>
+    <div class="field"><label>المبلغ (دج)</label>
+      <input id="qc-a" type="text" inputmode="decimal" placeholder="0" oninput="onNum(this,()=>qcHint('${dir}'))" style="text-align:center;font-size:20px;font-weight:900;direction:ltr"></div>
+    <div id="qc-hint" style="min-height:44px;margin:-4px 2px 12px;font-size:12.5px;font-weight:800;line-height:1.7"></div>
+    <button class="btn" id="qc-go" onclick="saveQuickCash('${dir}')" style="background:${isIn?'linear-gradient(135deg,#12a866,#0d8b53)':'linear-gradient(135deg,#e33f57,#c72d44)'};color:#fff">${isIn?'تسجيل: أخذت':'تسجيل: دفعت'}</button>`);
+  setTimeout(()=>{const t=document.getElementById('qc-n');if(t)t.focus();},250);
+}
+function qcHint(dir){
+  const el=document.getElementById('qc-hint');if(!el)return;
+  const n=cleanTxt(document.getElementById('qc-n').value),a=+cleanNum(document.getElementById('qc-a').value)||0;
+  const c=n?DB.customers.find(x=>x.name.trim()===n):null,cf=coffer(),isIn=dir==='in';
+  const side=v=>Math.abs(v)<0.5?'خالص':(v>0?'عليه ':'له ')+qn(Math.abs(v))+' دج';
+  let h='';
+  if(c){const b=custBalance(c.id).dinar,after=b+(isIn?-a:+a);
+    h+=`<div>رصيد «${qesc(c.name)}»: ${side(b)}</div>${a?`<div>بعد العملية: ${side(after)}</div>`:''}`;}
+  else if(n)h+=`<div style="color:var(--gold-deep)">زبون جديد — سيُضاف إلى دفتر الديون</div>`;
+  if(a){const nc=cf+(isIn?a:-a);
+    h+=`<div>صوارد الكوفر بعدها: <span style="color:${nc<0?'var(--red)':'inherit'}">${nc<0?'− ':''}${qn(Math.abs(nc))} دج</span></div>`;
+    if(!isIn&&a>cf+0.001)h+=`<div style="color:var(--red)">⛔ المبلغ أكبر من صوارد الكوفر</div>`;}
+  el.innerHTML=h;
+  const go=document.getElementById('qc-go');if(go)go.style.opacity=(!isIn&&a>cf+0.001)?.45:1;
+}
+function saveQuickCash(dir){
+  const isIn=dir==='in';
+  const n=cleanTxt(document.getElementById('qc-n').value),a=+cleanNum(document.getElementById('qc-a').value)||0;
+  if(!n)return toast('اكتب اسم الزبون');
+  if(!(a>0))return toast('اكتب المبلغ');
+  const cf=coffer();
+  if(!isIn&&a>cf+0.001)return toast('⛔ صوارد الكوفر '+fmt(cf,0)+' دج فقط');   // حارس الكوفر
+  let c=DB.customers.find(x=>x.name.trim()===n);
+  if(!c){if(!confirm('«'+n+'» غير موجود في دفتر الديون.\nإضافته زبوناً جديداً؟'))return;c=findOrCreateCustomer(n);}
+  DB.cash.push({id:uid(),customerId:c.id,kind:isIn?'pay':'take',cur:'dinar',amount:a,date:Date.now()});
+  logAct('صوارد',(isIn?'أخذت صوارد من «':'دفعت صوارد لـ«')+c.name+'» — '+fmt(a,0)+' دج');
+  save();closeModal();renderHome();try{renderDebts();}catch(e){}
+  toast((isIn?'✓ أخذت ':'✓ دفعت ')+fmt(a,0)+' دج — '+c.name);
+}
 function openCashLedger(){
   const ev=[];
   // حركات نقدية بالدينار فقط (الذهب لا يدخل هنا)
