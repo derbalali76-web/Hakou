@@ -323,6 +323,7 @@ G.init=async function(){
     if(ck&&ck.parentNode)ck.parentNode.insertBefore(dot,ck);
     else{dot.style.cssText+=';position:fixed;top:12px;left:12px;z-index:9999';document.body.appendChild(dot);}
     setInterval(updDot,1500);}
+  {const cs=document.createElement('style');cs.textContent='@media (max-width:899px){#cloud-chip{display:none!important}}';document.head.appendChild(cs);} // على الهاتف تكفي نقطة الحالة
   const chip=document.createElement('div');chip.id='cloud-chip';chip.style.cssText='position:fixed;bottom:4px;left:8px;z-index:50;font:700 10.5px Cairo,Tahoma,sans-serif;color:#8b92a9;pointer-events:none';chip.textContent=chipText();document.body.appendChild(chip);
   setStatus(STATUS==='idle'?'ok':STATUS);
 };

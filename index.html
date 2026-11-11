@@ -33,7 +33,7 @@ html,body{margin:0;padding:0}
 body{font-family:'Cairo','Noto Kufi Arabic','Segoe UI','Tajawal','Droid Arabic Kufi',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;color:var(--ink);
   background:linear-gradient(180deg,var(--bg1),var(--bg2)) fixed;
   overscroll-behavior-y:none;-webkit-font-smoothing:antialiased;
-  padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  padding-bottom:calc(66px + env(safe-area-inset-bottom))}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,select{font-family:inherit}
 .hidden{display:none!important}
@@ -55,6 +55,15 @@ input[inputmode="decimal"]{direction:ltr}
 .page{padding:18px 16px;max-width:660px;margin:0 auto}
 .page.act{animation:fade .3s cubic-bezier(.2,.8,.3,1)}
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.inv-fsbar{display:none}
+@media (max-width:899px){
+  body.inv-fs .topbar,body.inv-fs .nav{display:none}
+  body.inv-fs{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  body.inv-fs .inv-fsbar{display:flex;align-items:center;position:sticky;top:0;z-index:45;margin:-18px -16px 14px;
+    padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(120deg,#0e1428,#1a2340);box-shadow:0 8px 24px -8px rgba(14,20,40,.5)}
+  .inv-fsbar h3{margin:0;color:#fff;font-size:19px;font-weight:900}
+  .inv-fsbar .x{margin-inline-start:auto;width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:18px;font-weight:900}
+}
 .ptitle{display:flex;align-items:center;gap:9px;margin:2px 2px 16px}
 .ptitle h2{margin:0;font-size:20px;font-weight:900;letter-spacing:-.4px}
 .ptitle .badge{margin-inline-start:auto;background:var(--card);color:var(--muted);font-size:12px;font-weight:800;padding:6px 12px;border-radius:20px;box-shadow:var(--sh-sm)}
@@ -180,15 +189,16 @@ input[inputmode="decimal"]{direction:ltr}
 .empty p{font-weight:800;margin:6px 0 0;font-size:15px}
 .empty small{font-weight:600;color:var(--muted2)}
 
-.nav{position:fixed;bottom:0;left:0;right:0;z-index:75;background:rgba(255,255,255,.86);backdrop-filter:blur(18px) saturate(1.4);border-top:1px solid var(--line);
-  display:grid;grid-template-columns:repeat(4,1fr);padding:9px 8px calc(9px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px -12px rgba(14,20,40,.14)}
-.nav button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px;color:var(--muted2);font-weight:800;font-size:10.5px;border-radius:14px;transition:color .15s}
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:75;background:linear-gradient(120deg,#0e1428,#1a2340);border-top:1px solid rgba(239,181,47,.18);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:5px 8px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -8px 24px -8px rgba(14,20,40,.5)}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;color:#8e97b8;font-weight:800;font-size:10px;border-radius:12px;transition:color .15s}
 .nav button .ni{transition:transform .2s cubic-bezier(.2,.9,.3,1)}
-.nav button.on{color:var(--navy);background:linear-gradient(160deg,#fdf4d6,#fbead0)}
-.nav button.on .ni{transform:translateY(-2px)}
-.nav button.on.inv{color:var(--gold-deep)}
+.nav button .ni,.nav button .ni svg{width:20px;height:20px}
+.nav button.on{color:#3a2a04;background:linear-gradient(135deg,#f4c645,#df9310)}
+.nav button.on .ni{transform:none}
+.nav button.on.inv{color:#3a2a04}
 
-.overlay{position:fixed;inset:0;z-index:60;background:rgba(10,15,32,.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;animation:ov .22s ease}
+.overlay{position:fixed;inset:0;z-index:80;background:rgba(10,15,32,.5);backdrop-filter:blur(4px);display:flex;align-items:flex-end;justify-content:center;animation:ov .22s ease}
 @keyframes ov{from{opacity:0}to{opacity:1}}
 .sheet{background:var(--bg1);width:100%;max-width:660px;border-radius:28px 28px 0 0;max-height:94vh;overflow-y:auto;animation:up .32s cubic-bezier(.18,.9,.28,1);padding:8px 0 calc(22px + env(safe-area-inset-bottom))}
 @keyframes up{from{transform:translateY(100%)}to{transform:none}}
@@ -198,6 +208,7 @@ input[inputmode="decimal"]{direction:ltr}
 .shead .x{width:38px;height:38px;border-radius:13px;background:var(--card);display:grid;place-items:center;color:var(--muted);box-shadow:var(--sh-sm)}
 .sbody{padding:0 18px}
 
+.acard .num{white-space:nowrap}.acard>div:nth-child(2){min-width:0}
 .acard{background:var(--card);border-radius:var(--r-md);padding:16px;display:flex;align-items:center;gap:14px;margin-bottom:12px;box-shadow:var(--sh-sm);border:1px solid var(--line);transition:transform .1s}
 .acard:active{transform:scale(.98)}
 .acard .aic{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;flex:none}
@@ -271,7 +282,7 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
 .ssec .sh{font-weight:900;font-size:14px;color:var(--muted);margin:16px 4px 11px;display:flex;align-items:center;gap:8px}
 
 /* fullscreen stock */
-.fs{position:fixed;inset:0;z-index:70;background:linear-gradient(180deg,#f3f4fb,#e8eaf4);display:flex;flex-direction:column;animation:fsin .3s cubic-bezier(.2,.9,.3,1)}
+.fs{position:fixed;inset:0;z-index:80;background:linear-gradient(180deg,#f3f4fb,#e8eaf4);display:flex;flex-direction:column;animation:fsin .3s cubic-bezier(.2,.9,.3,1)}
 @keyframes fsin{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
 .fs .fhead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:calc(16px + env(safe-area-inset-top)) 22px 16px;background:linear-gradient(120deg,#0e1428,#1a2340);color:#fff;box-shadow:0 8px 24px -8px rgba(14,20,40,.4)}
 .fs .fhead h3{margin:0;font-size:23px;font-weight:900}
@@ -283,6 +294,15 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
 .fs-ing .w{font-size:28px;font-weight:900;color:var(--navy);white-space:nowrap}
 .fs-ing .w small{font-size:15px;color:var(--muted);font-weight:800}
 .fs-ing .k{font-size:20px;font-weight:900;color:var(--gold-deep);background:var(--gold-soft);padding:8px 18px;border-radius:12px;white-space:nowrap}
+.fs-ing{flex-wrap:wrap;padding:14px 16px;gap:10px 14px}
+.fs-ing .w{font-size:24px}
+.fs-ing .k{font-size:17px;padding:6px 14px}
+.fs-ing .ing-more{margin-inline-start:auto;width:42px;height:42px;border-radius:12px;background:var(--bg1);color:var(--navy);font-size:24px;font-weight:900;line-height:1;flex:none}
+.fs-ing.open .ing-more{background:var(--navy);color:#fff}
+.fs-ing .ing-info{width:100%;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;font-weight:800;color:var(--muted);border-top:1px solid var(--line2);padding-top:10px}
+.fs-ing .ing-acts{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.fs-ing .ing-acts button{font-weight:800;font-size:13px;padding:11px 6px;border-radius:11px;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:5px}
+.fs-ing .ing-acts button svg{width:15px;height:15px}
 .fs-ing .eq{margin-inline-start:auto;font-size:19px;font-weight:800;color:var(--muted);white-space:nowrap;text-align:left}
 .fs-ing .eq small{display:block;font-size:11px;font-weight:700}
 @media(min-width:820px){
@@ -612,6 +632,7 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
 
 <!-- INVOICE -->
 <div class="page hidden" id="page-invoice">
+  <div class="inv-fsbar"><h3>فاتورة</h3><button class="x" onclick="go('home')" aria-label="إغلاق">✕</button></div>
   <div id="invoice-form"></div>
 </div>
 
@@ -945,6 +966,7 @@ function ntPool(){ // مشتريات الترباح (الأقدم أولاً) ب
   return buys.filter(b=>b.w>0.0005);}
 function lotUsed(id){let u=0;sellOps().forEach(o=>o.alloc.forEach(a=>{if(a.lotId===id)u+=a.g;}));return u;}
 function lotRem(l){return Math.max(0,l.w730-lotUsed(l.id));}
+function realLots(){return (DB.lots||[]).filter(l=>l.src!=='manual');} // الوسم اليدوي «غالي» حجزٌ لا شراء: لا يدخل التقويم ولا المتوسطات
 function lotsAvail(){return (DB.lots||[]).map(l=>({...l,rem:lotRem(l)})).filter(l=>l.rem>0.0005);}
 function priceyG(){return (DB.lots||[]).filter(l=>l.pricey).reduce((s,l)=>s+lotRem(l),0);} // ذهب «غالي» مستبعَد من البيع
 function toggleLotPricey(id){const l=(DB.lots||[]).find(x=>x.id===id);if(!l)return;l.pricey=!l.pricey;logAct('ذهب',(l.pricey?'وسم «غالي»: ':'إزالة «غالي»: ')+lotLabel(l)+' — '+fmt(lotRem(l),2)+' غ');save();renderHome();openSaleDetailRefresh();toast(l.pricey?'وُسمت «غالي» — لن تُحسب في البيع':'أُزيلت علامة «غالي»');}
@@ -957,7 +979,7 @@ function autoAlloc(needG,existing){ // تخصيص تلقائي بلا نافذة
   for(const l of av.filter(x=>!x.pricey)){if(rem<=0.0005)break;const t=Math.min(l.rem,rem);if(t>0.0005){alloc.push({lotId:l.id,g:t});rem-=t;}}
   return alloc;
 }
-function lotLabel(l){if(l.src==='opening')return 'افتتاحية';
+function lotLabel(l){if(l.src==='opening')return 'افتتاحية';if(l.src==='manual')return 'غالي يدوي';
   if(l.src==='settle'){const c=DB.customers.find(x=>x.id===l.customerId);return 'شراء حساب'+(c?(' — '+c.name):'');}
   return 'فاتورة N°'+(l.no||'');}
 function profitCalc(){
@@ -978,7 +1000,7 @@ function profitCalc(){
     for(const b of pool){if(g<=0.0005)break;if(b.w<=0.0005)continue;const t=Math.min(b.w,g);
       matched+=t;mBuyM+=t*b.p;mSellM+=t*x.sp;ntG+=t;b.w-=t;g-=t;}
     if(g>0.0005)unmSell+=g;});
-  const unsold=(DB.lots||[]).reduce((s,l)=>s+lotRem(l),0);
+  const unsold=realLots().reduce((s,l)=>s+lotRem(l),0);
   const avgBuy=matched>0?mBuyM/matched:0;
   const avgSell=matched>0?mSellM/matched:0;
   const gross=mSellM-mBuyM;
@@ -995,13 +1017,13 @@ function netDebt730(){return DB.customers.reduce((s,c)=>s+custBalance(c.id).g730
 function netDebtDinar(){return DB.customers.reduce((s,c)=>s+custBalance(c.id).dinar,0);}
 function refPrice(){ // سعر مرجعي لتقويم الذهب بلا سعر شراء
   if(DB.refP>0)return DB.refP;                              // سعر حدّدته يدوياً
-  const lots=(DB.lots||[]).map(l=>({...l,rem:lotRem(l)})).filter(l=>l.rem>0.0005);
+  const lots=realLots().map(l=>({...l,rem:lotRem(l)})).filter(l=>l.rem>0.0005);
   const g=lots.reduce((s,l)=>s+l.rem,0);
   if(g>0)return lots.reduce((s,l)=>s+l.rem*l.price,0)/g;   // متوسط الدفعات المتبقية
   const ab=avgBuyPrice();if(ab>0)return ab;                 // متوسط الشراء
   let m=0,w=0;DB.invoices.filter(i=>i.type==='sell').forEach(i=>{m+=i.money;w+=i.total730;});
   if(w>0)return m/w;                                        // متوسط البيع
-  const all=(DB.lots||[]);                                  // أي دفعة ولو استُهلكت
+  const all=realLots();                                     // أي دفعة ولو استُهلكت
   if(all.length)return all.reduce((s,l)=>s+l.price,0)/all.length;
   return 0;
 }
@@ -1011,7 +1033,7 @@ function assetsCalc(){
   const gDebt=netDebt730();                                  // صافي ديون الذهب
   const stG=stock730();                                      // ذهب الكوفر
   const goldG=stG+gDebt;                                     // إجمالي الذهب المملوك فعلاً
-  const lots=(DB.lots||[]).map(l=>({...l,rem:lotRem(l)})).filter(l=>l.rem>0.0005);
+  const lots=realLots().map(l=>({...l,rem:lotRem(l)})).filter(l=>l.rem>0.0005);
   const lotG=lots.reduce((s,l)=>s+l.rem,0);
   const lotVal=lots.reduce((s,l)=>s+l.rem*l.price,0);
   const avgLot=lotG>0?lotVal/lotG:0;                          // متوسط ذهب البيع نفسه
@@ -1125,6 +1147,7 @@ function go(p){
     const pg=document.getElementById('page-'+x);pg.classList.toggle('hidden',x!==p);
     if(x===p){pg.classList.remove('act');void pg.offsetWidth;pg.classList.add('act');}});
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  document.body.classList.toggle('inv-fs',p==='invoice');window.scrollTo(0,0);
   document.getElementById('fab').classList.toggle('hidden',p!=='debts');
   if(p==='home')renderHome();
   if(p==='debts')renderDebts();
@@ -1531,7 +1554,7 @@ function saleLotCard(l,isP){return `
       </div>
       <div style="border-top:1px dashed ${isP?'#f6c9d1':'var(--gold-line)'};margin-top:12px;padding-top:10px;display:flex;align-items:center;font-size:12px;font-weight:800;color:${isP?'#8a2230':'#8a6a14'}">
         <span>قيمتها ${fmt(l.rem*l.price,0)} دج</span>
-        <button onclick="toggleLotPricey('${l.id}')" style="margin-inline-start:auto;padding:7px 12px;border-radius:9px;font-weight:800;font-size:12px;border:1.5px solid ${isP?'#d8324c':'var(--line)'};background:${isP?'#d8324c':'#fff'};color:${isP?'#fff':'var(--muted)'}">${isP?'✕ إزالة غالي':'وسم غالي'}</button>
+        ${l.src==='manual'?`<button onclick="releaseManualPricey('${l.id}')" style="margin-inline-start:auto;padding:7px 12px;border-radius:9px;font-weight:800;font-size:12px;border:1.5px solid #d8324c;background:#d8324c;color:#fff">↩ إرجاع لذهب البيع</button>`:`<button onclick="toggleLotPricey('${l.id}')" style="margin-inline-start:auto;padding:7px 12px;border-radius:9px;font-weight:800;font-size:12px;border:1.5px solid ${isP?'#d8324c':'var(--line)'};background:${isP?'#d8324c':'#fff'};color:${isP?'#fff':'var(--muted)'}">${isP?'✕ إزالة غالي':'وسم غالي'}</button>`}
       </div>
     </div>`;}
 function saleFigs(){
@@ -1566,6 +1589,7 @@ function saleDetail(which){
           <span class="lbl"${neg?' style="color:#b5233a"':''}>${neg?'الناقص الواجب شراؤه':'الصافي القابل للبيع'}</span></div>
         <div class="val num" style="color:${neg?'var(--red)':'var(--gold-deep)'}">${fmt(Math.abs(f.v1),2)}<span class="unit">غ</span></div>
         <div class="sub"${neg?' style="color:#c47083"':''}>مخزون وديون ${fmt(f.base,2)} غ${f.pG>0.005?(' − غالي '+fmt(f.pG,2)):''}${avg?(' · متوسط الشراء '+fmt(avg,0)):''}</div></div>
+      ${neg?'':priceyForm(f.v1)}
       ${lots.length?`
         <div style="display:flex;align-items:center;gap:9px;margin:0 4px 12px">
           <span style="font-weight:900;font-size:14px">الميزانات المتبقية</span>
@@ -1604,9 +1628,38 @@ function saleDetail(which){
         <div class="top"><span class="ic" style="background:linear-gradient(140deg,#ef6b7f,#d8324c)">🔴</span><span class="lbl" style="color:#b5233a">غالي — مستبعَد من البيع</span></div>
         <div class="val num" style="color:var(--red)">${fmt(f.v3,2)}<span class="unit">غ</span></div>
         <div class="sub" style="color:#c47083">لا يُحسب ضمن ذهب البيع</div></div>
+      ${f.v1>0.0005?priceyForm(f.v1):''}
       ${pricey.length?pricey.map(l=>saleLotCard(l,true)).join(''):`<div class="empty"><div class="eic">🔴</div><p>لا يوجد ذهب غالي</p><small>وسم دفعة بـ«غالي» لاستبعادها من البيع</small></div>`}
       ${back}`);
   }
+}
+function priceyForm(avail){return `
+  <div style="background:#fff;border:1.5px solid #f6c9d1;border-radius:16px;padding:14px;margin-bottom:14px">
+    <div style="font-weight:900;font-size:14px;color:#b5233a;margin-bottom:4px">🔴 وسم جزء كـ«غالي»</div>
+    <div style="font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:10px">يخرج من ذهب البيع إلى ذهب البيع الغالي · المتاح <b class="num">${fmt(Math.max(0,avail),2)}</b> غ</div>
+    <div style="display:flex;gap:8px">
+      <input id="pz-g" type="text" inputmode="decimal" placeholder="الوزن (غ)" oninput="onNum(this)" style="flex:1;min-width:0;padding:12px;border-radius:11px;border:1.5px solid var(--line);font-size:15px;font-weight:800;text-align:center">
+      <input id="pz-p" type="text" inputmode="decimal" placeholder="السعر دج/غ" oninput="onNum(this)" style="flex:1.3;min-width:0;padding:12px;border-radius:11px;border:1.5px solid var(--line);font-size:15px;font-weight:800;text-align:center"></div>
+    <button onclick="addManualPricey()" style="width:100%;margin-top:9px;padding:12px;border-radius:11px;background:#d8324c;color:#fff;font-weight:900;font-size:14px">وسم «غالي»</button>
+  </div>`;}
+function addManualPricey(){
+  const g=+cleanNum(document.getElementById('pz-g').value)||0,pr=+cleanNum(document.getElementById('pz-p').value)||0,f=saleFigs();
+  if(!(g>0))return toast('اكتب الوزن');
+  if(!(pr>0))return toast('اكتب السعر');
+  if(g>f.v1+0.0005)return toast(f.v1>0.0005?('المتاح في ذهب البيع '+fmt(f.v1,2)+' غ فقط'):'لا يوجد ذهب بيع متاح');
+  DB.lots=DB.lots||[];
+  const L={id:uid(),w730:+g.toFixed(3),price:pr,src:'manual',pricey:true,date:Date.now()};
+  DB.lots.push(L);
+  logAct('ذهب','وسم «غالي» يدوي: '+fmt(g,2)+' غ بسعر '+fmt(pr,0)+' دج/غ');save();renderHome();
+  toast('نُقل '+fmt(g,2)+' غ إلى ذهب البيع الغالي');saleDetail('pricey');
+}
+function releaseManualPricey(id){
+  const l=(DB.lots||[]).find(x=>x.id===id);if(!l)return;
+  if(lotUsed(id)>0.0005){toggleLotPricey(id);return;} // بِيع منه شيء: نزيل العلامة فقط كأي دفعة
+  if(!confirm('إرجاع '+fmt(l.w730,2)+' غ إلى ذهب البيع؟'))return;
+  DB.lots=DB.lots.filter(x=>x.id!==id);
+  logAct('ذهب','إرجاع «غالي» يدوي إلى ذهب البيع: '+fmt(l.w730,2)+' غ');save();renderHome();openSaleDetailRefresh();
+  toast('عاد إلى ذهب البيع');
 }
 function openSaleDetailRefresh(){ if(SALEVIEW&&SALEVIEW!=='menu')saleDetail(SALEVIEW); else openSaleGold(); }
 
@@ -2700,7 +2753,7 @@ function saveOpening(){
 }
 
 /* ========= ذهب الكوفر (ملء الشاشة) ========= */
-let STQ='',STDUP=false;
+let STQ='',STDUP=false,STOPEN=null;
 function dupCounts(){const c={};DB.stock.forEach(x=>{const k=ingKey(x.mizan,x.qoubal);c[k]=(c[k]||0)+1;});return c;}
 function openStock(){
   const tot=DB.stock.reduce((a,s)=>a+s.w730,0);
@@ -2733,20 +2786,22 @@ function renderStockList(){
   const sub=list.reduce((a,s)=>a+s.w730,0);
   el.innerHTML=(q?`<div style="text-align:center;font-weight:800;font-size:13px;color:var(--muted);margin-bottom:12px">
       ${fmt(list.length,0)} سبيكة · ${fmt(sub,2)} غ (730)</div>`:'')
-    +list.map(s=>`<div class="fs-ing">
+    +list.map(s=>{const open=STOPEN===s.id;return `<div class="fs-ing${open?' open':''}">
       <div class="w num">${fmt(s.mizan,2)} <small>غ</small></div>
       <div class="k num">عيار ${s.qoubal}${isDup(s)?`<span style="display:inline-block;margin-inline-start:6px;background:#e33f57;color:#fff;font-size:11px;font-weight:900;padding:2px 8px;border-radius:8px">مكرّرة ×${dc[ingKey(s.mizan,s.qoubal)]}</span>`:''}</div>
-      ${s.price>0?`<div class="num" style="font-weight:800;font-size:14px;color:var(--green);background:var(--green-soft);padding:6px 12px;border-radius:10px;white-space:nowrap">${fmt(s.price,0)} <small style="font-size:10px">دج/غ</small></div>`:''}
-      <div class="eq num">${fmt(s.w730,2)}<small>مكافئ 730</small></div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;width:100%;border-top:1px solid var(--line2);padding-top:12px">
-        <button onclick="sellIngot('${s.id}')" style="background:var(--green);color:#fff;font-weight:800;font-size:13px;padding:10px 16px;border-radius:11px;white-space:nowrap">بيع</button>
-        <button onclick="lendIngot('${s.id}')" style="background:var(--purple);color:#fff;font-weight:800;font-size:13px;padding:10px 16px;border-radius:11px;white-space:nowrap">سلف</button>
-        <button onclick="splitIngot('${s.id}')" title="تقسيم" style="background:#e9fbf2;color:#0d9a5c;font-weight:800;font-size:13px;padding:10px 14px;border-radius:11px;white-space:nowrap">✂ تقسيم</button>
-        <button onclick="mergeIngot('${s.id}')" title="دمج" style="background:#e8eeff;color:#3d5bd6;font-weight:800;font-size:13px;padding:10px 14px;border-radius:11px;white-space:nowrap">⇔ دمج</button>
-        <button onclick="editIngot('${s.id}')" title="تعديل" style="background:var(--gold-soft);color:var(--gold-deep);font-weight:800;padding:10px 12px;border-radius:11px;white-space:nowrap">${ICON.pen||'✎'}</button>
-        <button onclick="deleteIngot('${s.id}')" title="حذف" style="background:var(--red-soft);color:var(--red);font-weight:800;padding:10px 12px;border-radius:11px;white-space:nowrap">${ICON.trash||'🗑'}</button>
-      </div>
-    </div>`).join('');
+      <button class="ing-more" onclick="STOPEN=STOPEN==='${s.id}'?null:'${s.id}';renderStockList()" aria-label="الأدوات">⋮</button>
+      ${open?`<div class="ing-info">
+        <span class="num">مكافئ 730: <b>${fmt(s.w730,2)}</b> غ</span>
+        ${s.price>0?`<span class="num" style="color:var(--green)">سعر الشراء: <b>${fmt(s.price,0)}</b> دج/غ</span>`:''}</div>
+      <div class="ing-acts">
+        <button onclick="sellIngot('${s.id}')" style="background:var(--green);color:#fff">بيع</button>
+        <button onclick="lendIngot('${s.id}')" style="background:var(--purple);color:#fff">سلف</button>
+        <button onclick="splitIngot('${s.id}')" style="background:#e9fbf2;color:#0d9a5c">✂ تقسيم</button>
+        <button onclick="mergeIngot('${s.id}')" style="background:#e8eeff;color:#3d5bd6">⇔ دمج</button>
+        <button onclick="editIngot('${s.id}')" title="تعديل" style="background:var(--gold-soft);color:var(--gold-deep)">${ICON.pen||'✎'} تعديل</button>
+        <button onclick="deleteIngot('${s.id}')" title="حذف" style="background:var(--red-soft);color:var(--red)">${ICON.trash||'🗑'} حذف</button>
+      </div>`:''}
+    </div>`;}).join('');
 }
 function editIngot(id){
   const s=DB.stock.find(x=>x.id===id);if(!s)return;
