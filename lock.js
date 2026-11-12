@@ -1,9 +1,13 @@
-/* قفل البوصلة: يظهر التطبيق كبوصلة عادية؛ يُفتح عند تحريك السهم إلى الاتجاه السري.
+/* قفل البوصلة (الهاتف واللوحي فقط): يظهر التطبيق كبوصلة عادية؛ يُفتح بثلاث نقرات سريعة على الشاشة.
+   السهم يتحرك كبوصلة عادية للتمويه فقط. في الحاسوب (فأرة بلا شاشة لمس) لا يظهر القفل.
    ملاحظة: هذا تمويه بصري فقط — الحماية الحقيقية لبياناتك هي تسجيل الدخول إلى حسابك. */
 (function(){
 'use strict';
 var KA='gp_lock_ang',TOL=8,AUTO_MS=90*1000;
 var L=window.GPLOCK={locked:true,secret:null};
+var DESK=(function(){try{return navigator.maxTouchPoints===0&&!matchMedia('(pointer:coarse)').matches&&!/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);}catch(e){return false;}})();
+if(DESK){L.locked=false;L.off=true;L.lock=L.change=function(){};L._ang=L._release=function(){};L._state=function(){return {locked:false,off:true};};return;}
+var TAPS=3,TAP_MS=700,taps=[],tapStart=null;
 function lsget(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsset(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 var s=lsget(KA);L.secret=(s===null||s===''||isNaN(+s))?null:((+s%360)+360)%360;
@@ -34,15 +38,25 @@ function point(e){var dial=ov.querySelector('#gp-dial'),r=dial.getBoundingClient
   cx=r.left+r.width/2,cy=r.top+r.height/2,t=e.touches?e.touches[0]:e,
   dx=t.clientX-cx,dy=t.clientY-cy;if(Math.abs(dx)<2&&Math.abs(dy)<2)return;
   ang=(Math.atan2(dx,-dy)*180/Math.PI+360)%360;paint();}
-function release(){if(setup)return;
-  if(L.secret!==null&&diff(ang,L.secret)<=TOL)unlock();}
+function release(){unlock();} // للاختبارات فقط
+/* ثلاث نقرات سريعة في أي مكان من الشاشة (النقرة = لمسة بلا سحب) */
+function tapDown(e){var t=e.touches?e.touches[0]:e;tapStart={x:t.clientX,y:t.clientY,t:Date.now()};}
+function tapUp(e){if(!tapStart)return;var t=e.changedTouches?e.changedTouches[0]:e,s=tapStart;tapStart=null;
+  if(Math.abs(t.clientX-s.x)>18||Math.abs(t.clientY-s.y)>18||Date.now()-s.t>350){taps=[];return;}
+  var now=Date.now();if(taps.length&&now-taps[taps.length-1]>TAP_MS)taps=[];taps.push(now); // كل نقرة خلال 0.7 ث من سابقتها
+  if(taps.length>=TAPS){taps=[];swallow();unlock();}}
+/* النقرة الثالثة لا «تمرّ» إلى التطبيق تحت البوصلة (كانت تفتح البطاقة التي تحت الإصبع) */
+function swallow(){var until=Date.now()+600,f=function(e){if(Date.now()<until){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation&&e.stopImmediatePropagation();}};
+  ['click','pointerup','mouseup','touchend'].forEach(function(t){window.addEventListener(t,f,true);setTimeout(function(){window.removeEventListener(t,f,true);},700);});}
 function bind(){
   var dial=ov.querySelector('#gp-dial');
   var down=function(e){drag=true;point(e);try{dial.setPointerCapture&&e.pointerId!=null&&dial.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault&&e.preventDefault();};
   var move=function(e){if(drag){point(e);e.preventDefault&&e.preventDefault();}};
-  var up=function(){if(!drag)return;drag=false;release();};
+  var up=function(){drag=false;};
   if(window.PointerEvent){dial.addEventListener('pointerdown',down);window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',up);}
   else{dial.addEventListener('mousedown',down);window.addEventListener('mousemove',move);window.addEventListener('mouseup',up);dial.addEventListener('touchstart',down,{passive:false});window.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);}
+  if(window.PointerEvent){ov.addEventListener('pointerdown',tapDown,true);ov.addEventListener('pointerup',tapUp,true);}
+  else{ov.addEventListener('touchstart',tapDown,{capture:true,passive:true});ov.addEventListener('touchend',tapUp,true);ov.addEventListener('mousedown',tapDown,true);ov.addEventListener('mouseup',tapUp,true);}
   ov.querySelector('#gp-save').onclick=function(){L.secret=Math.round(((ang%360)+360)%360);lsset(KA,String(L.secret));setup=false;unlock();};
   ov.querySelector('#gp-cancel').onclick=function(){setup=false;unlock();};
   ov.addEventListener('contextmenu',function(e){e.preventDefault();});
@@ -52,9 +66,7 @@ function show(){
   if(ov&&ov.parentNode)return;
   ov=build();document.documentElement.appendChild(ov); // خارج body حتى لا يشمله inert
   if(!document.body)document.addEventListener('DOMContentLoaded',function(){if(L.locked)inert(true);});
-  L.locked=true;ang=(Math.random()*360)|0;
-  if(L.secret!==null&&diff(ang,L.secret)<=TOL*2)ang=(ang+90)%360; // لا يبدأ قريباً من السرّي
-  if(setup||L.secret===null){setup=true;ov.querySelector('#gp-setup').style.display='block';if(L.secret!==null)ov.querySelector('#gp-cancel').style.display='inline-block';}
+  L.locked=true;ang=(Math.random()*360)|0;taps=[];
   paint();bind();inert(true);}
 function unlock(){L.locked=false;if(ov&&ov.parentNode)ov.parentNode.removeChild(ov);ov=null;inert(false);try{window.dispatchEvent(new Event('gp-unlocked'));}catch(e){}}
 L.lock=function(){setup=false;show();};
