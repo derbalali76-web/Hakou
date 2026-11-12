@@ -678,8 +678,8 @@ input[type="date"]{direction:ltr;text-align:center;font-size:14.5px!important;pa
     <div class="arows" id="assets-rows"></div>
   </div>
   <div class="qcash">
-    <button class="qin" onclick="openQuickCash('in')"><span class="qic">↓</span><span><b>أخذت</b><small>دينار أو ذهب</small></span></button>
-    <button class="qout" onclick="openQuickCash('out')"><span class="qic">↑</span><span><b>دفعت</b><small>دينار أو ذهب</small></span></button>
+    <button class="qout" onclick="openQuickCash('out')"><span class="qic">↑</span><span><b>أخذ</b><small>خرج منك</small></span></button>
+    <button class="qin" onclick="openQuickCash('in')"><span class="qic">↓</span><span><b>دفع</b><small>دخل عندك</small></span></button>
   </div>
 </div>
 
@@ -3169,7 +3169,7 @@ function openQuickCash(dir){
   const isIn=dir==='in',col=isIn?'#0d8b53':'#c72d44';
   const names=DB.customers.map(c=>({c,t:custLastActivity(c.id)})).sort((a,b)=>b.t-a.t).map(x=>`<option value="${qesc(x.c.name)}">`).join('');
   QCG=[{mizan:'',qoubal:''}];
-  sheet(isIn?'أخذت':'دفعت',`
+  sheet(isIn?'دفع — دخل عندك':'أخذ — خرج منك',`
     <div style="background:${isIn?'linear-gradient(135deg,#eafaf2,#d5f3e4)':'linear-gradient(135deg,#fff3f5,#fde3e8)'};border:1px solid ${isIn?'#bfe9d4':'#f6c9d1'};border-radius:16px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;font-weight:800;font-size:13px;color:${col}">
       <span>صوارد الكوفر الآن</span><span style="margin-inline-start:auto;font-size:16px;font-weight:900">${qn(coffer())} دج</span></div>
     <div class="field"><label>اسم الزبون</label>
@@ -3253,9 +3253,9 @@ function saveQuickCash(dir){
     let snap=null;if(!isIn){const ex=takeExact(x.q,x.m);if(ex)snap=JSON.parse(JSON.stringify(ex));else takeFromStock(x.q,x.m);}
     DB.cash.push({id:uid(),customerId:c.id,kind,cur:'730',mizan:x.m,qoubal:x.q,amount:eq,date:now,...(snap?{ingotSnap:snap}:{})});});
   if(gl.length)parts.push(gl.length+' سبيكة · '+fmt(gl.reduce((s,x)=>s+w730of(x.m,x.q),0),2)+' غ');
-  logAct('صوارد',(isIn?'أخذت من «':'دفعت لـ«')+c.name+'» — '+parts.join(' · '));
+  logAct('صوارد',(isIn?'دفع «':'أخذ «')+c.name+'» — '+parts.join(' · '));
   save();closeModal();renderHome();try{renderDebts();}catch(e){}
-  toast((isIn?'✓ أخذت ':'✓ دفعت ')+parts.join(' · ')+' — '+c.name);
+  toast((isIn?'✓ دفع ':'✓ أخذ ')+parts.join(' · ')+' — '+c.name);
 }
 function openCashLedger(){
   const ev=[];
